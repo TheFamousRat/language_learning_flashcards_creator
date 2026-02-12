@@ -1,0 +1,39 @@
+[project]
+name = "anki-deck-creator"
+version = "0.1.0"
+description = "Un programme pour créer un deck Anki à partir de phrases natives du site Tatoeba"
+authors = [
+    {name = "TheFamousRat",email = "gpotato.gr@gmail.com"}
+]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "tqdm (>=4.67.3,<5.0.0)",
+    "kokoro (>=0.9.4,<0.10.0)",
+    "pandas (>=3.0.0,<4.0.0)",
+    "numpy (>=2.4.2,<3.0.0)",
+    "soundfile (>=0.13.1,<0.14.0)",
+    "genanki (>=0.13.1,<0.14.0)",
+    "torch (>=2.10.0,<3.0.0)",
+    "regex (>=2026.1.15,<2027.0.0)",
+    "dataclasses-json (>=0.6.7,<0.7.0)",
+
+
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.15.0,<0.16.0)",
+    "mypy (>=1.19.1,<2.0.0)",
+    "black (>=26.1.0,<27.0.0)",
+    "deptry (>=0.24.0,<0.25.0)",
+    "pandas-stubs (>=3.0.0.260204,<4.0.0.0)",
+    "types-tqdm (>=4.67.3.20260205,<5.0.0.0)",
+    "plotly (>=6.5.2,<7.0.0)",
+    "types-regex (>=2026.1.15.20260116,<2027.0.0.0)",
+
+]

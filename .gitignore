@@ -1,0 +1,5 @@
+.vscode/*
+*.pyc
+.venv./*
+generated_deck_data/*
+data/*

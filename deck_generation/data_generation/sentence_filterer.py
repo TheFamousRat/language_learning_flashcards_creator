@@ -1,0 +1,166 @@
+from __future__ import annotations
+
+
+import numpy as np
+import pandas
+
+
+from pathlib import Path
+
+from deck_generation.bin.config import SentenceFilteringConfig
+from deck_generation.constants import (
+    ORIGINAL_ID_COL_NAME,
+    ORIGINAL_SENTENCE_COL_NAME,
+    TRANSLATED_SENTENCE_COL_NAME,
+)
+import regex
+import logging
+
+from deck_generation.utils import split_string_at_indices
+
+_logger = logging.getLogger(name=__file__)
+_logger.setLevel(level=logging.DEBUG)
+
+
+class SentenceFilterer:
+    def __init__(
+        self,
+        sentences_df: pandas.DataFrame,
+        word_to_freq: dict[str, int],
+    ) -> None:
+        self.original_sentences_df = sentences_df
+        self.word_to_freq = word_to_freq
+
+    @classmethod
+    def from_tatoeba_file(
+        cls,
+        sentences_filepath: Path,
+        word_frequency_file_path: Path,
+    ) -> SentenceFilterer:
+        _logger.info(
+            f"Loading sentences from Tatoeba export file at {sentences_filepath}..."
+        )
+        original_translated_sentences = pandas.read_csv(
+            filepath_or_buffer=sentences_filepath,
+            sep="	",
+            names=[
+                ORIGINAL_ID_COL_NAME,
+                ORIGINAL_SENTENCE_COL_NAME,
+                "translated_id",
+                TRANSLATED_SENTENCE_COL_NAME,
+            ],
+        )
+
+        word_freq_df = pandas.read_csv(
+            filepath_or_buffer=word_frequency_file_path, sep=" ", names=["Word", "freq"]
+        )
+
+        word_to_freq: dict[str, int] = dict(
+            zip(word_freq_df["Word"], word_freq_df["freq"])
+        )
+
+        _logger.info(f"Loaded {len(original_translated_sentences)} sentences.")
+        return SentenceFilterer(
+            sentences_df=original_translated_sentences,
+            word_to_freq=word_to_freq,
+        )
+
+    def _get_rarest_word_frequency(
+        self, sentences_words: list[list[str]], only_proper_nouns_capitalized: bool
+    ):
+        # We assume that non-word starting words are capitalized properly
+        non_starting_words = [
+            sentence_word
+            for sentence_words in sentences_words
+            for sentence_word in sentence_words[1:]
+        ]
+        non_starting_word_frequencies = [
+            self.word_to_freq.get(word, -1) for word in non_starting_words
+        ]
+
+        if only_proper_nouns_capitalized:
+            non_starting_word_frequencies = [
+                np.inf if word[0].upper() == word[0] else freq
+                for word, freq in zip(non_starting_words, non_starting_word_frequencies)
+            ]
+
+        starting_words = [sentence_words[0] for sentence_words in sentences_words]
+        starting_word_frequencies = [
+            min(
+                self.word_to_freq.get(word.lower(), np.inf),
+                self.word_to_freq.get(word, np.inf),
+            )
+            for word in starting_words
+        ]
+
+        word_frequencies = starting_word_frequencies + non_starting_word_frequencies
+        words = starting_words + non_starting_words
+        rarest_word_idx = np.argmin(word_frequencies)
+
+        return words[rarest_word_idx].upper(), word_frequencies[rarest_word_idx]
+
+    def get_filtered_sentences_df(
+        self,
+        config: SentenceFilteringConfig,
+    ) -> pandas.DataFrame:
+        # TODO: Eventually a metric to check how similar two sentences are would be useful
+        # This similarity would not be semantic, as learning two ways to say the same thing is useful, but instead
+        # a sort of Levenshtein distance to measure the number of required letter changes between two sentences
+        _logger.info("Running sentence filtering.")
+        _logger.info("   Removing duplicate entries...")
+        sentences_df = self.original_sentences_df.drop_duplicates(
+            subset=ORIGINAL_SENTENCE_COL_NAME
+        ).drop_duplicates(subset=TRANSLATED_SENTENCE_COL_NAME)
+
+        _logger.info("   Splitting entries into separate sentences...")
+        sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\']|^)\s*(\p{Lu})"
+        split_sentences = sentences_df[ORIGINAL_SENTENCE_COL_NAME].apply(
+            lambda sentence: split_string_at_indices(
+                string_to_split=sentence,
+                split_indices=[
+                    match.span()[0]
+                    for match in regex.finditer(
+                        pattern=sentence_first_letter_pattern, string=sentence
+                    )
+                ],
+            )
+        )
+        sentences_df["sentences_words"] = split_sentences.apply(
+            lambda sentences_list: [
+                regex.findall(r"(\p{L}+\'?)", sentence) for sentence in sentences_list
+            ]
+        )
+
+        _logger.info("   Removing entries out of word count range...")
+        sentences_lengths = sentences_df["sentences_words"].apply(
+            lambda sentences_list: sum(
+                [len(sentences_words) for sentences_words in sentences_list]
+            )
+        )
+        sentences_length_mask = (sentences_lengths >= config.min_word_count) & (
+            sentences_lengths <= config.max_word_count
+        )
+        sentences_df = sentences_df[sentences_length_mask]
+        sentences_df = sentences_df.reset_index(drop=True)
+
+        _logger.info("   Registering least frequent word per sentence...")
+        rarest_word_and_frequency = sentences_df["sentences_words"].apply(
+            lambda sentence: self._get_rarest_word_frequency(
+                sentences_words=sentence,
+                only_proper_nouns_capitalized=config.only_proper_nouns_capitalized,
+            )
+        )
+        sentences_df[["rarest_word", "rarest_word_freq"]] = pandas.DataFrame(
+            rarest_word_and_frequency.to_list()
+        )
+
+        sentences_df = (
+            sentences_df.groupby("rarest_word")
+            .head(config.max_sentences_count_per_new_word)
+            .sort_values(["rarest_word_freq", "rarest_word"], ascending=False)
+        )
+
+        _logger.info(
+            f"Done, {len(sentences_df)} out of {len(self.original_sentences_df)} entries kept."
+        )
+        return sentences_df
