@@ -17,7 +17,6 @@ class SentenceFilteringConfig(DataClassJsonMixin):
 class AudioGenerationConfig(DataClassJsonMixin):
     voices: list[str]
     language_code: str
-    overwrite_existing_files: bool
 
 
 @dataclass(frozen=True)

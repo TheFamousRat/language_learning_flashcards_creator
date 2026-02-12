@@ -36,7 +36,7 @@ def main() -> None:
             sentence_filtering_config=SentenceFilteringConfig(
                 min_word_count=4,
                 max_word_count=20,
-                max_sentences_count_per_new_word=1,
+                max_sentences_count_per_new_word=2,
                 only_proper_nouns_capitalized=True,
             ),
             audio_generation_config=AudioGenerationConfig(
@@ -45,7 +45,6 @@ def main() -> None:
                     "im_nicola",
                     "if_sara",
                 ],
-                overwrite_existing_files=True,
             ),
             note_types_and_target_proportion=[
                 (ReadingNoteModel(), 0.4),

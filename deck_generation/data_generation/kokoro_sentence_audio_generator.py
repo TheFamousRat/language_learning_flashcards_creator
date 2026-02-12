@@ -18,33 +18,40 @@ _logger.setLevel(level=logging.DEBUG)
 
 class KokoroSentenceAudioGenerator:
     def __init__(self, config: AudioGenerationConfig) -> None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         self.config = config
-        self.pipeline = KPipeline(
-            lang_code=config.language_code, device=device, repo_id="hexgrad/Kokoro-82M"
-        )
+        self._pipeline: KPipeline | None = None
+
+    @property
+    def pipeline(self) -> KPipeline:
+        if self._pipeline is None:
+            _logger.info("   Loading audio model...")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self._pipeline = KPipeline(
+                lang_code=self.config.language_code,
+                device=device,
+                repo_id="hexgrad/Kokoro-82M",
+            )
+
+        return self._pipeline
 
     def generate_sentences_audio(
         self,
         sentences: list[str],
         sentences_ids: list[int],
-        audio_files_path: Path,
-    ) -> list[Path]:
+        sentences_paths: list[Path],
+        overwrite_existing_files: bool,
+    ) -> None:
         _logger.info(f"Received {len(sentences)} sentences to generate audio for...")
         assert len(sentences) == len(
-            sentences_ids
-        ), "Please provide an equal number of sentences and ids for audio generation."
+            sentences_paths
+        ), "Please provide an equal number of sentences and paths for audio generation."
 
         sentences_df = pandas.DataFrame(
-            data={"sentences": sentences, "ids": sentences_ids}
+            data={"sentences": sentences, "paths": sentences_paths, "ids": sentences_ids}
         )
-        sentences_paths = sentences_df["ids"].apply(
-            lambda id: str(audio_files_path / f"{id}.mp3")
-        )
-        sentences_df["paths"] = sentences_paths
         sentences_df["voice"] = sentences_df["ids"] % len(self.config.voices)
 
-        if not self.config.overwrite_existing_files:
+        if not overwrite_existing_files:
             existing_sentences_file_mask = sentences_df["paths"].apply(
                 lambda sentence_file_path: Path(sentence_file_path).exists()
             )
@@ -55,7 +62,7 @@ class KokoroSentenceAudioGenerator:
 
             if sum(existing_sentences_file_mask) == len(sentences):
                 _logger.info("All sentence audio files already exists.")
-                return sentences_paths
+                return
 
             sentences_df = sentences_df[~existing_sentences_file_mask]
 
@@ -74,10 +81,10 @@ class KokoroSentenceAudioGenerator:
                     sf.write(
                         file=sentences_df_chunk["paths"].iloc[sentence_idx],
                         data=result.audio
-                        / result.audio.max(),  # TODO: Allow for user to define audio magnitude ? (right now it sets it to 1.0 always)
+                        / result.audio.max(),
                         samplerate=24000,
                         compression_level=0.7,
                     )
                     pbar.update(1)
-
-        return sentences_paths
+        
+        _logger.info("Audio generation done.")

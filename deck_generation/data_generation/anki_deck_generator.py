@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from deck_generation.bin.config import DeckGeneratorConfig
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
@@ -40,6 +41,7 @@ class AnkiDeckGenerator:
         self.deck_output_folder = deck_output_folder
         self.deck_sentences_data_file_path = self.deck_output_folder / "sentences.csv"
         self.audio_files_folder_path = self.deck_output_folder / "audio"
+        self.config_file = self.deck_output_folder / "used_config.json"
 
         self.sentences_filterer = sentences_filterer
 
@@ -52,6 +54,10 @@ class AnkiDeckGenerator:
             proportion
             for _note_model, proportion in self.config.note_types_and_target_proportion
         ]
+
+        self.audio_generator = KokoroSentenceAudioGenerator(
+            config=self.config.audio_generation_config
+        )
 
     @classmethod
     def from_tatoeba_file(
@@ -74,23 +80,47 @@ class AnkiDeckGenerator:
             config=config,
         )
 
+    def _generate_audio_files(
+        self,
+        sentences_df: pandas.DataFrame,
+        previous_config: DeckGeneratorConfig | None,
+    ) -> None:
+        if not self.audio_files_folder_path.exists():
+            self.audio_files_folder_path.mkdir(parents=True)
+
+        configs_mismatch: bool = (
+            True
+            if previous_config is None
+            else (
+                previous_config.audio_generation_config
+                != self.config.audio_generation_config
+            )
+        )
+
+        sentences_df[AUDIO_FILE_COL_NAME] = sentences_df[ORIGINAL_ID_COL_NAME].apply(
+            lambda sentence_id: self.audio_files_folder_path / f"{sentence_id}.mp3"
+        )
+
+        self.audio_generator.generate_sentences_audio(
+            sentences=sentences_df[ORIGINAL_SENTENCE_COL_NAME].values,
+            sentences_ids=sentences_df[ORIGINAL_ID_COL_NAME].values,
+            sentences_paths=sentences_df[AUDIO_FILE_COL_NAME].values,
+            overwrite_existing_files=configs_mismatch,
+        )
+
     def generate_deck_data(self) -> None:
+        previous_config: DeckGeneratorConfig | None = None
+        if self.config_file.exists():
+            with open(file=self.config_file, mode="r") as f:
+                previous_config = DeckGeneratorConfig.from_json(json.load(fp=f))
+
         sentences_df = self.sentences_filterer.get_filtered_sentences_df(
             config=self.config.sentence_filtering_config
         )
         sentences_df = sentences_df.reset_index(drop=True)
 
-        audio_generator = KokoroSentenceAudioGenerator(
-            config=self.config.audio_generation_config
-        )
-
-        if not self.audio_files_folder_path.exists():
-            self.audio_files_folder_path.mkdir(parents=True)
-
-        sentences_df[AUDIO_FILE_COL_NAME] = audio_generator.generate_sentences_audio(
-            sentences=sentences_df[ORIGINAL_SENTENCE_COL_NAME].values,
-            sentences_ids=sentences_df[ORIGINAL_ID_COL_NAME].values,
-            audio_files_path=self.audio_files_folder_path,
+        self._generate_audio_files(
+            sentences_df=sentences_df, previous_config=previous_config
         )
 
         sentences_df.to_csv(
@@ -107,7 +137,8 @@ class AnkiDeckGenerator:
             index=False,
         )
 
-        return
+        with open(file=self.deck_output_folder / "used_config.json", mode="w") as f:
+            json.dump(obj=self.config.to_json(), fp=f, indent=4)
 
     def make_deck(self) -> None:
         # TODO: Add condition to check whether the data needs to be regenerated or not
