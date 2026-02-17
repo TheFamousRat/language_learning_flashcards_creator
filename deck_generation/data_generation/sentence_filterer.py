@@ -11,6 +11,7 @@ from deck_generation.bin.config import SentenceFilteringConfig
 from deck_generation.constants import (
     ORIGINAL_ID_COL_NAME,
     ORIGINAL_SENTENCE_COL_NAME,
+    TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
 import regex
@@ -46,7 +47,7 @@ class SentenceFilterer:
             names=[
                 ORIGINAL_ID_COL_NAME,
                 ORIGINAL_SENTENCE_COL_NAME,
-                "translated_id",
+                TRANSLATED_ID_COL_NAME,
                 TRANSLATED_SENTENCE_COL_NAME,
             ],
         )
@@ -74,7 +75,7 @@ class SentenceFilterer:
             for sentence_words in sentences_words
             for sentence_word in sentence_words[1:]
         ]
-        non_starting_word_frequencies = [
+        non_starting_word_frequencies: list[int | float] = [
             self.word_to_freq.get(word, -1) for word in non_starting_words
         ]
 
@@ -99,20 +100,10 @@ class SentenceFilterer:
 
         return words[rarest_word_idx].upper(), word_frequencies[rarest_word_idx]
 
-    def get_filtered_sentences_df(
-        self,
-        config: SentenceFilteringConfig,
-    ) -> pandas.DataFrame:
-        # TODO: Eventually a metric to check how similar two sentences are would be useful
-        # This similarity would not be semantic, as learning two ways to say the same thing is useful, but instead
-        # a sort of Levenshtein distance to measure the number of required letter changes between two sentences
-        _logger.info("Running sentence filtering.")
-        _logger.info("   Removing duplicate entries...")
-        sentences_df = self.original_sentences_df.drop_duplicates(
-            subset=ORIGINAL_SENTENCE_COL_NAME
-        ).drop_duplicates(subset=TRANSLATED_SENTENCE_COL_NAME)
-
-        _logger.info("   Splitting entries into separate sentences...")
+    def _get_split_sentences_and_words(
+        self, sentences_df: pandas.DataFrame
+    ) -> pandas.Series:
+        # Splits entries into sentences, and split these sentences into words
         sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\']|^)\s*(\p{Lu})"
         split_sentences = sentences_df[ORIGINAL_SENTENCE_COL_NAME].apply(
             lambda sentence: split_string_at_indices(
@@ -125,10 +116,31 @@ class SentenceFilterer:
                 ],
             )
         )
-        sentences_df["sentences_words"] = split_sentences.apply(
+        sentences_words = split_sentences.apply(
             lambda sentences_list: [
                 regex.findall(r"(\p{L}+\'?)", sentence) for sentence in sentences_list
             ]
+        )
+
+        return sentences_words
+
+    def get_filtered_sentences_df(
+        self,
+        config: SentenceFilteringConfig,
+    ) -> pandas.DataFrame:
+        # TODO: Eventually a metric to check how similar two sentences are would be useful
+        # This similarity would not be semantic, as learning two ways to say the same thing is useful, but instead
+        # a sort of Levenshtein distance to measure the number of required letter changes between two sentences
+        _logger.info("Running sentence filtering.")
+
+        _logger.info("   Removing duplicate entries...")
+        sentences_df = self.original_sentences_df.drop_duplicates(
+            subset=ORIGINAL_SENTENCE_COL_NAME
+        ).drop_duplicates(subset=TRANSLATED_SENTENCE_COL_NAME)
+
+        _logger.info("   Splitting entries into separate sentences...")
+        sentences_df["sentences_words"] = self._get_split_sentences_and_words(
+            sentences_df=sentences_df
         )
 
         _logger.info("   Removing entries out of word count range...")

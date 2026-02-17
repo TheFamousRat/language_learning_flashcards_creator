@@ -38,7 +38,7 @@ class KokoroSentenceAudioGenerator:
         self,
         sentences: list[str],
         sentences_ids: list[int],
-        sentences_paths: list[Path],
+        sentences_paths: list[str],
         overwrite_existing_files: bool,
     ) -> None:
         _logger.info(f"Received {len(sentences)} sentences to generate audio for...")
@@ -47,7 +47,11 @@ class KokoroSentenceAudioGenerator:
         ), "Please provide an equal number of sentences and paths for audio generation."
 
         sentences_df = pandas.DataFrame(
-            data={"sentences": sentences, "paths": sentences_paths, "ids": sentences_ids}
+            data={
+                "sentences": sentences,
+                "paths": sentences_paths,
+                "ids": sentences_ids,
+            }
         )
         sentences_df["voice"] = sentences_df["ids"] % len(self.config.voices)
 
@@ -80,11 +84,10 @@ class KokoroSentenceAudioGenerator:
                 for sentence_idx, result in enumerate(generator):
                     sf.write(
                         file=sentences_df_chunk["paths"].iloc[sentence_idx],
-                        data=result.audio
-                        / result.audio.max(),
+                        data=result.audio / result.audio.max(),
                         samplerate=24000,
                         compression_level=0.7,
                     )
                     pbar.update(1)
-        
+
         _logger.info("Audio generation done.")

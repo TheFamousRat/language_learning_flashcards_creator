@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+from typing import cast
 from deck_generation.bin.config import DeckGeneratorConfig
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
@@ -14,7 +15,7 @@ from deck_generation.data_generation.kokoro_sentence_audio_generator import (
 from deck_generation.data_generation.sentence_filterer import SentenceFilterer
 
 
-import genanki
+import genanki  # type: ignore[import-untyped]
 import numpy as np
 import pandas
 
@@ -98,13 +99,15 @@ class AnkiDeckGenerator:
         )
 
         sentences_df[AUDIO_FILE_COL_NAME] = sentences_df[ORIGINAL_ID_COL_NAME].apply(
-            lambda sentence_id: self.audio_files_folder_path / f"{sentence_id}.mp3"
+            lambda sentence_id: str(self.audio_files_folder_path / f"{sentence_id}.mp3")
         )
 
         self.audio_generator.generate_sentences_audio(
-            sentences=sentences_df[ORIGINAL_SENTENCE_COL_NAME].values,
-            sentences_ids=sentences_df[ORIGINAL_ID_COL_NAME].values,
-            sentences_paths=sentences_df[AUDIO_FILE_COL_NAME].values,
+            sentences=cast(
+                list[str], sentences_df[ORIGINAL_SENTENCE_COL_NAME].tolist()
+            ),
+            sentences_ids=cast(list[int], sentences_df[ORIGINAL_ID_COL_NAME].tolist()),
+            sentences_paths=cast(list[str], sentences_df[AUDIO_FILE_COL_NAME].tolist()),
             overwrite_existing_files=configs_mismatch,
         )
 
@@ -174,6 +177,7 @@ class AnkiDeckGenerator:
     def _get_note_model_indices(
         self, proportions: list[float], notes_count: int
     ) -> list[int]:
+        # TODO: Répartition des types de cartes déterministe
         proportions_np = np.array(proportions)
         proportions_np = proportions_np / proportions_np.sum()
 

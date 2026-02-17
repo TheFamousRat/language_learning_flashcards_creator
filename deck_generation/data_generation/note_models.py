@@ -32,7 +32,7 @@ class NoteModelFields(DataClassJsonMixin):
 
 @dataclass()
 class NoteModel(DataClassJsonMixin):
-    model_fields: NoteModelFields | None = None
+    model_fields: NoteModelFields
 
     def make_note_from_data(self, row: pandas.Series):
         assert self.model_fields is not None
@@ -48,65 +48,71 @@ class NoteModel(DataClassJsonMixin):
 
 @dataclass()
 class ReadingNoteModel(NoteModel):
-    def __post_init__(self) -> None:
-        self.model_fields = NoteModelFields(
-            model_id=1607392319,
-            name="Reading Note",
-            fields=[
-                {"name": "Original sentence"},
-                {"name": "Native sentence"},
-                {"name": "MyMedia"},
-            ],
-            templates=[
-                {
-                    "name": "Reading",
-                    "qfmt": "{{Original sentence}}<br>{{MyMedia}}",
-                    "afmt": '{{FrontSide}}<hr id="answer">{{Native sentence}}',
-                },
-            ],
-            css="",
+    def __init__(self) -> None:
+        super().__init__(
+            model_fields=NoteModelFields(
+                model_id=1607392319,
+                name="Reading Note",
+                fields=[
+                    {"name": "Original sentence"},
+                    {"name": "Native sentence"},
+                    {"name": "MyMedia"},
+                ],
+                templates=[
+                    {
+                        "name": "Reading",
+                        "qfmt": "{{Original sentence}}<br>{{MyMedia}}",
+                        "afmt": '{{FrontSide}}<hr id="answer">{{Native sentence}}',
+                    },
+                ],
+                css="",
+            )
         )
 
 
 @dataclass()
 class ListeningNoteModel(NoteModel):
-    def __post_init__(self) -> None:
-        self.model_fields = NoteModelFields(
-            model_id=1607392320,
-            name="Listening Note",
-            fields=[
-                {"name": "Original sentence"},
-                {"name": "Native sentence"},
-                {"name": "MyMedia"},
-            ],
-            templates=[
-                {
-                    "name": "Listening",
-                    "qfmt": "<br>{{MyMedia}}",
-                    "afmt": '{{FrontSide}}<hr id="answer">{{Original sentence}}<br>{{Native sentence}}',
-                },
-            ],
-            css="",
+    def __init__(self) -> None:
+        super().__init__(
+            model_fields=NoteModelFields(
+                model_id=1607392320,
+                name="Listening Note",
+                fields=[
+                    {"name": "Original sentence"},
+                    {"name": "Native sentence"},
+                    {"name": "MyMedia"},
+                ],
+                templates=[
+                    {
+                        "name": "Listening",
+                        "qfmt": "<br>{{MyMedia}}",
+                        "afmt": '{{FrontSide}}<hr id="answer">{{Original sentence}}<br>{{Native sentence}}',
+                    },
+                ],
+                css="",
+            )
         )
 
 
 @dataclass()
 class TranslatingNoteModel(NoteModel):
-    def __post_init__(self) -> None:
-        self.model_fields = NoteModelFields(
-            model_id=1607392321,
-            name="Translating Note",
-            fields=[
-                {"name": "Original sentence"},
-                {"name": "Native sentence"},
-                {"name": "MyMedia"},
-            ],
-            templates=[
-                {
-                    "name": "Translating",
-                    "qfmt": "{{Native sentence}}",
-                    "afmt": '{{FrontSide}}<br>{{MyMedia}}<hr id="answer">{{Original sentence}}',
-                },
-            ],
-            css="",
+    def __init__(self) -> None:
+        super().__init__(
+            model_fields=NoteModelFields(
+                model_id=1607392321,
+                name="Translating Note",
+                fields=[
+                    {"name": "Original sentence"},
+                    {"name": "Native sentence"},
+                    {"name": "MyMedia"},
+                ],
+                templates=[
+                    {
+                        "name": "Translating",
+                        "qfmt": "{{Native sentence}}",
+                        "afmt": '{{FrontSide}}<br>{{MyMedia}}<hr id="answer">{{Original sentence}}',
+                    },
+                ],
+                css="",
+            )
         )

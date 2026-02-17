@@ -25,6 +25,7 @@ _logger.setLevel(level=logging.DEBUG)
 
 def main() -> None:
     # TODO: Ajouter un lien vers les mots du wikitionnaire
+    # TODO: Ne créer de cartes "traduction" que si le mot a déjà été vu
     sentences_filepath = Path("data/Sentence pairs in Italian-French - 2026-02-07.tsv")
 
     deck_generator = AnkiDeckGenerator.from_tatoeba_file(
