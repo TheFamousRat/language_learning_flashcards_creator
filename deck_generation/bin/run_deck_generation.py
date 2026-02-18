@@ -52,6 +52,7 @@ def main() -> None:
             listening_notes_proportion=0.4,
             translating_note_model=TranslatingNoteModel(),
             translating_notes_proportion=0.2,
+            plot_running_card_types_proportions=True,
         ),
     )
 

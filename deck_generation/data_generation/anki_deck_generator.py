@@ -165,6 +165,34 @@ class AnkiDeckGenerator:
 
         _logger.info("Done.")
 
+    @classmethod
+    def _display_running_model_proportions(
+        cls, models: list[NoteModel], note_model_indices: np.ndarray
+    ) -> None:
+        running_models_counts = np.zeros(
+            shape=(len(models), len(note_model_indices)), dtype=np.int32
+        )
+        for model_idx, _model in enumerate(models):
+            relevant_indices = np.where(note_model_indices == model_idx)[0]
+            running_models_counts[model_idx, relevant_indices] = 1
+
+        running_counts_df = pandas.DataFrame(
+            running_models_counts.T,
+            columns=[model.__class__.__name__ for model in models],
+        )
+
+        import plotly.express as px
+
+        px.histogram(
+            running_counts_df,
+            x=running_counts_df.index,
+            y=[c for c in running_counts_df.columns],
+            cumulative=True,
+            barnorm="percent",
+            nbins=len(note_model_indices) // 20,
+            title="Running proportion of cards types with deck progression",
+        ).show()
+
     def _get_sentences_note_models(
         self,
         deck_data_df: pandas.DataFrame,
@@ -181,7 +209,7 @@ class AnkiDeckGenerator:
                 self.config.listening_notes_proportion,
             ]
         )
-        valid_model_notes: list[list[int]] = [
+        valid_model_notes_masks: list[list[bool]] = [
             model.get_valid_sentence_masks(sentences_df=deck_data_df)
             for model in models
         ]
@@ -195,18 +223,20 @@ class AnkiDeckGenerator:
             ) - 1
 
             for closest_model_index in proportion_distance.argsort():
-                if valid_model_notes[closest_model_index][note_index]:
+                if valid_model_notes_masks[closest_model_index][note_index]:
                     note_model_indices[note_index] = closest_model_index
                     models_notes_count[closest_model_index] += 1
                     break
-            
-            if note_model_indices[note_index] == -1:
-                raise RuntimeError(f"Could not find a card type for sentence #{note_index} (ID: {deck_data_df[ORIGINAL_ID_COL_NAME][note_index]})")
 
-        # TODO: Function to visualize running proportions over time
-        # import plotly.express as px
-        # relevant_indices = np.where(note_model_indices == 0)[0]
-        # px.line(x=np.arange(len(relevant_indices)), y=(np.arange(len(relevant_indices))+1)/(1+relevant_indices)).show()
+            if note_model_indices[note_index] == -1:
+                raise RuntimeError(
+                    f"Could not find a card type for sentence #{note_index} (ID: {deck_data_df[ORIGINAL_ID_COL_NAME][note_index]})"
+                )
+
+        if self.config.plot_running_card_types_proportions:
+            self._display_running_model_proportions(
+                models=models, note_model_indices=note_model_indices
+            )
 
         note_models: list[NoteModel] = [models[0]] * len(deck_data_df)
         for model_idx, model in enumerate(models[1:], start=1):

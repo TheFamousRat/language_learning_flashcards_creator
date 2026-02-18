@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 from dataclasses_json import DataClassJsonMixin, Undefined, dataclass_json
 
@@ -39,3 +39,5 @@ class DeckGeneratorConfig:
         default_factory=TranslatingNoteModel
     )
     translating_notes_proportion: float = 0.2
+
+    plot_running_card_types_proportions: bool = False

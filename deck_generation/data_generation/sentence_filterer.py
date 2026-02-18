@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Callable
 
 
 import numpy as np
@@ -26,10 +27,11 @@ _logger.setLevel(level=logging.DEBUG)
 class SentenceFilterer:
     def __init__(
         self,
-        sentences_df: pandas.DataFrame,
+        sentences_loader: Callable[..., pandas.DataFrame],
         word_to_freq: dict[str, int],
     ) -> None:
-        self.original_sentences_df = sentences_df
+        self._sentences_loader = sentences_loader
+        self._original_sentences_df: pandas.DataFrame | None = None
         self.word_to_freq = word_to_freq
 
     @classmethod
@@ -38,19 +40,25 @@ class SentenceFilterer:
         sentences_filepath: Path,
         word_frequency_file_path: Path,
     ) -> SentenceFilterer:
-        _logger.info(
-            f"Loading sentences from Tatoeba export file at {sentences_filepath}..."
-        )
-        original_translated_sentences = pandas.read_csv(
-            filepath_or_buffer=sentences_filepath,
-            sep="	",
-            names=[
-                ORIGINAL_ID_COL_NAME,
-                ORIGINAL_SENTENCE_COL_NAME,
-                TRANSLATED_ID_COL_NAME,
-                TRANSLATED_SENTENCE_COL_NAME,
-            ],
-        )
+        def _tatoeba_loader(_sentences_path: Path) -> pandas.DataFrame:
+            _logger.info(
+                f"Loading sentences from Tatoeba export file at {sentences_filepath}..."
+            )
+            loaded_sentences = pandas.read_csv(
+                filepath_or_buffer=_sentences_path,
+                sep="	",
+                names=[
+                    ORIGINAL_ID_COL_NAME,
+                    ORIGINAL_SENTENCE_COL_NAME,
+                    TRANSLATED_ID_COL_NAME,
+                    TRANSLATED_SENTENCE_COL_NAME,
+                ],
+            )
+            _logger.info(f"Loaded {len(loaded_sentences)} sentences.")
+
+            return loaded_sentences
+
+        sentences_loader = lambda: _tatoeba_loader(_sentences_path=sentences_filepath)
 
         word_freq_df = pandas.read_csv(
             filepath_or_buffer=word_frequency_file_path, sep=" ", names=["Word", "freq"]
@@ -60,11 +68,17 @@ class SentenceFilterer:
             zip(word_freq_df["Word"], word_freq_df["freq"])
         )
 
-        _logger.info(f"Loaded {len(original_translated_sentences)} sentences.")
         return SentenceFilterer(
-            sentences_df=original_translated_sentences,
+            sentences_loader=sentences_loader,
             word_to_freq=word_to_freq,
         )
+
+    @property
+    def original_sentences_df(self) -> pandas.DataFrame:
+        if self._original_sentences_df is None:
+            self._original_sentences_df = self._sentences_loader()
+
+        return self._original_sentences_df
 
     def _get_rarest_word_frequency(
         self, sentences_words: list[list[str]], only_proper_nouns_capitalized: bool
