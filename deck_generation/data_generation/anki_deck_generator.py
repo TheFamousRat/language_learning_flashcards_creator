@@ -12,6 +12,7 @@ from deck_generation.constants import (
 from deck_generation.data_generation.kokoro_sentence_audio_generator import (
     KokoroSentenceAudioGenerator,
 )
+from deck_generation.data_generation.note_models import NoteModel
 from deck_generation.data_generation.sentence_filterer import SentenceFilterer
 
 
@@ -47,14 +48,6 @@ class AnkiDeckGenerator:
         self.sentences_filterer = sentences_filterer
 
         self.config = config
-        self.note_models = [
-            note_model
-            for note_model, _proportion in self.config.note_types_and_target_proportion
-        ]
-        self.proportions = [
-            proportion
-            for _note_model, proportion in self.config.note_types_and_target_proportion
-        ]
 
         self.audio_generator = KokoroSentenceAudioGenerator(
             config=self.config.audio_generation_config
@@ -151,16 +144,14 @@ class AnkiDeckGenerator:
             filepath_or_buffer=self.deck_sentences_data_file_path
         )
 
-        note_model_indices = self._get_note_model_indices(
-            proportions=self.proportions, notes_count=len(deck_data_df)
+        deck_data_df["note_model"] = self._get_sentences_note_models(
+            deck_data_df=deck_data_df,
         )
 
         my_deck = genanki.Deck(deck_id=2010120120, name=self.deck_name)
 
         notes_data = deck_data_df.apply(
-            lambda row: self.note_models[
-                note_model_indices[row.name]
-            ].make_note_from_data(row=row),
+            lambda row: row.note_model.make_note_from_data(row=row),
             axis=1,
         )
         for note in notes_data:
@@ -174,22 +165,53 @@ class AnkiDeckGenerator:
 
         _logger.info("Done.")
 
-    def _get_note_model_indices(
-        self, proportions: list[float], notes_count: int
-    ) -> list[int]:
-        # TODO: Répartition des types de cartes déterministe
-        proportions_np = np.array(proportions)
-        proportions_np = proportions_np / proportions_np.sum()
-
-        indices = np.arange(notes_count, dtype=np.int32)
-        np.random.shuffle(indices)
-
-        splits_indices = np.split(
-            indices,
-            np.round(np.cumsum(proportions_np)[:-1] * (len(indices) - 1)).astype(int),
+    def _get_sentences_note_models(
+        self,
+        deck_data_df: pandas.DataFrame,
+    ) -> list[NoteModel]:
+        models: list[NoteModel] = [
+            self.config.translating_note_model,
+            self.config.reading_note_model,
+            self.config.listening_note_model,
+        ]
+        models_target_proportions = np.array(
+            [
+                self.config.translating_notes_proportion,
+                self.config.reading_notes_proportion,
+                self.config.listening_notes_proportion,
+            ]
         )
-        note_model_indices = np.zeros_like(indices, dtype=np.int32)
-        for note_model_idx, split_indices in enumerate(splits_indices):
-            note_model_indices[split_indices] = note_model_idx
+        valid_model_notes: list[list[int]] = [
+            model.get_valid_sentence_masks(sentences_df=deck_data_df)
+            for model in models
+        ]
 
-        return note_model_indices
+        models_notes_count = np.zeros_like(models_target_proportions, dtype=np.int32)
+        note_model_indices = np.full(len(deck_data_df), fill_value=-1, dtype=np.int32)
+        for note_index in range(len(deck_data_df)):
+            potential_running_proportions = (models_notes_count + 1) / (note_index + 1)
+            proportion_distance = (
+                potential_running_proportions / models_target_proportions
+            ) - 1
+
+            for closest_model_index in proportion_distance.argsort():
+                if valid_model_notes[closest_model_index][note_index]:
+                    note_model_indices[note_index] = closest_model_index
+                    models_notes_count[closest_model_index] += 1
+                    break
+            
+            if note_model_indices[note_index] == -1:
+                raise RuntimeError(f"Could not find a card type for sentence #{note_index} (ID: {deck_data_df[ORIGINAL_ID_COL_NAME][note_index]})")
+
+        # TODO: Function to visualize running proportions over time
+        # import plotly.express as px
+        # relevant_indices = np.where(note_model_indices == 0)[0]
+        # px.line(x=np.arange(len(relevant_indices)), y=(np.arange(len(relevant_indices))+1)/(1+relevant_indices)).show()
+
+        note_models: list[NoteModel] = [models[0]] * len(deck_data_df)
+        for model_idx, model in enumerate(models[1:], start=1):
+            model_note_indices = np.where(note_model_indices == model_idx)[0]
+            for note_model_idx in model_note_indices:
+                note_models[note_model_idx] = model
+
+        return note_models

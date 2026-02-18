@@ -32,7 +32,7 @@ class NoteModelFields(DataClassJsonMixin):
 
 @dataclass()
 class NoteModel(DataClassJsonMixin):
-    model_fields: NoteModelFields
+    model_fields: NoteModelFields | None = None
 
     def make_note_from_data(self, row: pandas.Series):
         assert self.model_fields is not None
@@ -45,74 +45,91 @@ class NoteModel(DataClassJsonMixin):
             ],
         )
 
+    def get_valid_sentence_masks(self, sentences_df: pandas.DataFrame) -> list[bool]:
+        return len(sentences_df) * [True]
+
 
 @dataclass()
 class ReadingNoteModel(NoteModel):
-    def __init__(self) -> None:
-        super().__init__(
-            model_fields=NoteModelFields(
-                model_id=1607392319,
-                name="Reading Note",
-                fields=[
-                    {"name": "Original sentence"},
-                    {"name": "Native sentence"},
-                    {"name": "MyMedia"},
-                ],
-                templates=[
-                    {
-                        "name": "Reading",
-                        "qfmt": "{{Original sentence}}<br>{{MyMedia}}",
-                        "afmt": '{{FrontSide}}<hr id="answer">{{Native sentence}}',
-                    },
-                ],
-                css="",
-            )
+    def __post_init__(self) -> None:
+        self.model_fields = NoteModelFields(
+            model_id=1607392319,
+            name="Reading Note",
+            fields=[
+                {"name": "Original sentence"},
+                {"name": "Native sentence"},
+                {"name": "MyMedia"},
+            ],
+            templates=[
+                {
+                    "name": "Reading",
+                    "qfmt": "{{Original sentence}}<br>{{MyMedia}}",
+                    "afmt": '{{FrontSide}}<hr id="answer">{{Native sentence}}',
+                },
+            ],
+            css="",
         )
+
+    def get_valid_sentence_masks(self, sentences_df: pandas.DataFrame) -> list[bool]:
+        return len(sentences_df) * [True]
 
 
 @dataclass()
 class ListeningNoteModel(NoteModel):
-    def __init__(self) -> None:
-        super().__init__(
-            model_fields=NoteModelFields(
-                model_id=1607392320,
-                name="Listening Note",
-                fields=[
-                    {"name": "Original sentence"},
-                    {"name": "Native sentence"},
-                    {"name": "MyMedia"},
-                ],
-                templates=[
-                    {
-                        "name": "Listening",
-                        "qfmt": "<br>{{MyMedia}}",
-                        "afmt": '{{FrontSide}}<hr id="answer">{{Original sentence}}<br>{{Native sentence}}',
-                    },
-                ],
-                css="",
-            )
+    def __post_init__(self) -> None:
+        self.model_fields = NoteModelFields(
+            model_id=1607392320,
+            name="Listening Note",
+            fields=[
+                {"name": "Original sentence"},
+                {"name": "Native sentence"},
+                {"name": "MyMedia"},
+            ],
+            templates=[
+                {
+                    "name": "Listening",
+                    "qfmt": "<br>{{MyMedia}}",
+                    "afmt": '{{FrontSide}}<hr id="answer">{{Original sentence}}<br>{{Native sentence}}',
+                },
+            ],
+            css="",
         )
+
+    def get_valid_sentence_masks(self, sentences_df: pandas.DataFrame) -> list[bool]:
+        return len(sentences_df) * [True]
 
 
 @dataclass()
 class TranslatingNoteModel(NoteModel):
-    def __init__(self) -> None:
-        super().__init__(
-            model_fields=NoteModelFields(
-                model_id=1607392321,
-                name="Translating Note",
-                fields=[
-                    {"name": "Original sentence"},
-                    {"name": "Native sentence"},
-                    {"name": "MyMedia"},
-                ],
-                templates=[
-                    {
-                        "name": "Translating",
-                        "qfmt": "{{Native sentence}}",
-                        "afmt": '{{FrontSide}}<br>{{MyMedia}}<hr id="answer">{{Original sentence}}',
-                    },
-                ],
-                css="",
-            )
+    def __post_init__(self) -> None:
+        self.model_fields = NoteModelFields(
+            model_id=1607392321,
+            name="Translating Note",
+            fields=[
+                {"name": "Original sentence"},
+                {"name": "Native sentence"},
+                {"name": "MyMedia"},
+            ],
+            templates=[
+                {
+                    "name": "Translating",
+                    "qfmt": "{{Native sentence}}",
+                    "afmt": '{{FrontSide}}<br>{{MyMedia}}<hr id="answer">{{Original sentence}}',
+                },
+            ],
+            css="",
         )
+
+    def get_valid_sentence_masks(self, sentences_df: pandas.DataFrame) -> list[bool]:
+        word_introduction_count = (
+            sentences_df.groupby("rarest_word", sort=False)["rarest_word"]
+            .rolling(window=2, min_periods=1)
+            .count()
+            .astype(int)
+            .reset_index(drop=True)
+        )
+        sentence_rarest_word_already_introduced_mask = (
+            word_introduction_count > 1
+        ).tolist()
+
+        return sentence_rarest_word_already_introduced_mask
