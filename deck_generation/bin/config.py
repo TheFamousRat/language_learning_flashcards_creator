@@ -31,6 +31,7 @@ class DeckGeneratorConfig:
     sentence_filtering_config: SentenceFilteringConfig
     audio_generation_config: AudioGenerationConfig
 
+    # TODO: Make sure proportions are normalized
     reading_note_model: ReadingNoteModel = field(default_factory=ReadingNoteModel)
     reading_notes_proportion: float = 0.4
     listening_note_model: ListeningNoteModel = field(default_factory=ListeningNoteModel)

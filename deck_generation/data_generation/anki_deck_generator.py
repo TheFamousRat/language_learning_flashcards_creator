@@ -6,7 +6,6 @@ from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
     ORIGINAL_ID_COL_NAME,
     ORIGINAL_SENTENCE_COL_NAME,
-    TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
 from deck_generation.data_generation.kokoro_sentence_audio_generator import (
@@ -110,6 +109,7 @@ class AnkiDeckGenerator:
             with open(file=self.config_file, mode="r") as f:
                 previous_config = DeckGeneratorConfig.from_json(json.load(fp=f))
 
+        # TODO: Add condition to check whether the data needs to be regenerated or not
         sentences_df = self.sentences_filterer.get_filtered_sentences_df(
             config=self.config.sentence_filtering_config
         )
@@ -124,7 +124,6 @@ class AnkiDeckGenerator:
             columns=[
                 ORIGINAL_ID_COL_NAME,
                 ORIGINAL_SENTENCE_COL_NAME,
-                TRANSLATED_ID_COL_NAME,
                 TRANSLATED_SENTENCE_COL_NAME,
                 "rarest_word",
                 "rarest_word_freq",
@@ -137,7 +136,6 @@ class AnkiDeckGenerator:
             json.dump(obj=self.config.to_json(), fp=f, indent=4)
 
     def make_deck(self) -> None:
-        # TODO: Add condition to check whether the data needs to be regenerated or not
         self.generate_deck_data()
 
         deck_data_df = pandas.read_csv(

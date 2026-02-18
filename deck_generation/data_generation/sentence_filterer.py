@@ -40,7 +40,9 @@ class SentenceFilterer:
         sentences_filepath: Path,
         word_frequency_file_path: Path,
     ) -> SentenceFilterer:
-        def _tatoeba_loader(_sentences_path: Path) -> pandas.DataFrame:
+        def _tatoeba_loader(
+            _sentences_path: Path = sentences_filepath,
+        ) -> pandas.DataFrame:
             _logger.info(
                 f"Loading sentences from Tatoeba export file at {sentences_filepath}..."
             )
@@ -58,8 +60,6 @@ class SentenceFilterer:
 
             return loaded_sentences
 
-        sentences_loader = lambda: _tatoeba_loader(_sentences_path=sentences_filepath)
-
         word_freq_df = pandas.read_csv(
             filepath_or_buffer=word_frequency_file_path, sep=" ", names=["Word", "freq"]
         )
@@ -69,7 +69,7 @@ class SentenceFilterer:
         )
 
         return SentenceFilterer(
-            sentences_loader=sentences_loader,
+            sentences_loader=_tatoeba_loader,
             word_to_freq=word_to_freq,
         )
 
