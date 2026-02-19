@@ -32,7 +32,7 @@ def main() -> None:
         tatoeba_sentences_file_path=sentences_filepath,
         word_frequency_file_path=Path("data/word_freq_it.csv"),
         target_language_code="it",
-        known_language_code="fr",
+        translated_language_code="fr",
         config=DeckGeneratorConfig(
             sentence_filtering_config=SentenceFilteringConfig(
                 min_word_count=4,

@@ -8,6 +8,8 @@ from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
+    RAREST_WORD_COL_NAME,
 )
 
 
@@ -43,7 +45,7 @@ class NoteModel(DataClassJsonMixin):
         assert self.model_fields is not None
         wiki_hyperlinks: list[str] = [
             f'<a href="https://{translated_language_code}.wiktionary.org/wiki/{word if word_idx > 0 else word.lower()}#{target_language_code}">{word}</a>'
-            for sentence in row["sentences_words"]
+            for sentence in row[SENTENCES_WORDS_COL_NAME]
             for word_idx, word in enumerate(sentence)
         ]
 
@@ -153,7 +155,7 @@ class TranslatingNoteModel(NoteModel):
 
     def get_valid_sentence_masks(self, sentences_df: pandas.DataFrame) -> list[bool]:
         word_introduction_count = (
-            sentences_df.groupby("rarest_word", sort=False)["rarest_word"]
+            sentences_df.groupby(RAREST_WORD_COL_NAME, sort=False)[RAREST_WORD_COL_NAME]
             .rolling(window=2, min_periods=1)
             .count()
             .astype(int)

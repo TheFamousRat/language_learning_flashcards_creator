@@ -14,6 +14,9 @@ from deck_generation.constants import (
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
+    RAREST_WORD_COL_NAME,
+    RAREST_WORD_FREQ_COL_NAME,
 )
 import regex
 import logging
@@ -153,12 +156,12 @@ class SentenceFilterer:
         ).drop_duplicates(subset=TRANSLATED_SENTENCE_COL_NAME)
 
         _logger.info("   Splitting entries into separate sentences...")
-        sentences_df["sentences_words"] = self._get_split_sentences_and_words(
+        sentences_df[SENTENCES_WORDS_COL_NAME] = self._get_split_sentences_and_words(
             sentences_df=sentences_df
         )
 
         _logger.info("   Removing entries out of word count range...")
-        sentences_lengths = sentences_df["sentences_words"].apply(
+        sentences_lengths = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
             lambda sentences_list: sum(
                 [len(sentences_words) for sentences_words in sentences_list]
             )
@@ -170,20 +173,22 @@ class SentenceFilterer:
         sentences_df = sentences_df.reset_index(drop=True)
 
         _logger.info("   Registering least frequent word per sentence...")
-        rarest_word_and_frequency = sentences_df["sentences_words"].apply(
+        rarest_word_and_frequency = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
             lambda sentence: self._get_rarest_word_frequency(
                 sentences_words=sentence,
                 only_proper_nouns_capitalized=config.only_proper_nouns_capitalized,
             )
         )
-        sentences_df[["rarest_word", "rarest_word_freq"]] = pandas.DataFrame(
-            rarest_word_and_frequency.to_list()
+        sentences_df[[RAREST_WORD_COL_NAME, RAREST_WORD_FREQ_COL_NAME]] = (
+            pandas.DataFrame(rarest_word_and_frequency.to_list())
         )
 
         sentences_df = (
-            sentences_df.groupby("rarest_word")
+            sentences_df.groupby(RAREST_WORD_COL_NAME)
             .head(config.max_sentences_count_per_new_word)
-            .sort_values(["rarest_word_freq", "rarest_word"], ascending=False)
+            .sort_values(
+                [RAREST_WORD_FREQ_COL_NAME, RAREST_WORD_COL_NAME], ascending=False
+            )
         )
 
         _logger.info(

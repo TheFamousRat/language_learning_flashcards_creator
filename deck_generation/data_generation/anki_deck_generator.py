@@ -1,26 +1,28 @@
 from __future__ import annotations
 import json
 from typing import cast
+import plotly.express as px  # type: ignore[import-untyped]
+import genanki  # type: ignore[import-untyped]
+import numpy as np
+import pandas
+from pathlib import Path
+
+
 from deck_generation.bin.config import DeckGeneratorConfig
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
     TARGET_ID_COL_NAME,
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
+    RAREST_WORD_COL_NAME,
+    RAREST_WORD_FREQ_COL_NAME,
 )
 from deck_generation.data_generation.kokoro_sentence_audio_generator import (
     KokoroSentenceAudioGenerator,
 )
 from deck_generation.data_generation.note_models import NoteModel
 from deck_generation.data_generation.sentence_filterer import SentenceFilterer
-
-
-import genanki  # type: ignore[import-untyped]
-import numpy as np
-import pandas
-
-
-from pathlib import Path
 
 import logging
 
@@ -37,7 +39,7 @@ class AnkiDeckGenerator:
         deck_output_folder: Path,
         sentences_filterer: SentenceFilterer,
         config: DeckGeneratorConfig,
-        known_language_code: str,
+        translated_language_code: str,
         target_language_code: str,
     ) -> None:
         self.deck_name = deck_name
@@ -54,7 +56,7 @@ class AnkiDeckGenerator:
             config=self.config.audio_generation_config
         )
 
-        self.known_language_code = known_language_code
+        self.translated_language_code = translated_language_code
         self.target_language_code = target_language_code
 
     @classmethod
@@ -65,7 +67,7 @@ class AnkiDeckGenerator:
         tatoeba_sentences_file_path: Path,
         word_frequency_file_path: Path,
         config: DeckGeneratorConfig,
-        known_language_code: str,
+        translated_language_code: str,
         target_language_code: str,
     ) -> AnkiDeckGenerator:
         filterer = SentenceFilterer.from_tatoeba_file(
@@ -78,7 +80,7 @@ class AnkiDeckGenerator:
             deck_output_folder=deck_output_folder,
             sentences_filterer=filterer,
             config=config,
-            known_language_code=known_language_code,
+            translated_language_code=translated_language_code,
             target_language_code=target_language_code,
         )
 
@@ -128,12 +130,12 @@ class AnkiDeckGenerator:
 
         sentences_df[
             [
-                TARGET_ID_COL_NAME,  # TODO: Set all as constants
+                TARGET_ID_COL_NAME,
                 TARGET_SENTENCE_COL_NAME,
                 TRANSLATED_SENTENCE_COL_NAME,
-                "sentences_words",
-                "rarest_word",
-                "rarest_word_freq",
+                SENTENCES_WORDS_COL_NAME,
+                RAREST_WORD_COL_NAME,
+                RAREST_WORD_FREQ_COL_NAME,
                 AUDIO_FILE_COL_NAME,
             ]
         ].to_json(
@@ -160,11 +162,13 @@ class AnkiDeckGenerator:
         # TODO: Set ID as hash from deck name maybe ?
         my_deck = genanki.Deck(deck_id=2010120120, name=self.deck_name)
 
-        for note_model, (_row_index, row) in zip(cards_note_model, deck_data_df.iterrows()):
+        for note_model, (_row_index, row) in zip(
+            cards_note_model, deck_data_df.iterrows()
+        ):
             note = note_model.make_note_from_data(
                 row=row,
-                target_language_code=self.target_language_code,  # TODO: Consistent naming for known and target language
-                translated_language_code=self.known_language_code,
+                target_language_code=self.target_language_code,
+                translated_language_code=self.translated_language_code,
             )
             my_deck.add_note(note=note)
 
@@ -191,8 +195,6 @@ class AnkiDeckGenerator:
             running_models_counts.T,
             columns=[model.__class__.__name__ for model in models],
         )
-
-        import plotly.express as px
 
         px.histogram(
             running_counts_df,
