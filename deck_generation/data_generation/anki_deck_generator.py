@@ -4,8 +4,8 @@ from typing import cast
 from deck_generation.bin.config import DeckGeneratorConfig
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
-    ORIGINAL_ID_COL_NAME,
-    ORIGINAL_SENTENCE_COL_NAME,
+    TARGET_ID_COL_NAME,
+    TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
 from deck_generation.data_generation.kokoro_sentence_audio_generator import (
@@ -37,10 +37,12 @@ class AnkiDeckGenerator:
         deck_output_folder: Path,
         sentences_filterer: SentenceFilterer,
         config: DeckGeneratorConfig,
+        known_language_code: str,
+        target_language_code: str,
     ) -> None:
         self.deck_name = deck_name
         self.deck_output_folder = deck_output_folder
-        self.deck_sentences_data_file_path = self.deck_output_folder / "sentences.csv"
+        self.deck_sentences_data_file_path = self.deck_output_folder / "sentences.json"
         self.audio_files_folder_path = self.deck_output_folder / "audio"
         self.config_file = self.deck_output_folder / "used_config.json"
 
@@ -52,6 +54,9 @@ class AnkiDeckGenerator:
             config=self.config.audio_generation_config
         )
 
+        self.known_language_code = known_language_code
+        self.target_language_code = target_language_code
+
     @classmethod
     def from_tatoeba_file(
         cls,
@@ -60,6 +65,8 @@ class AnkiDeckGenerator:
         tatoeba_sentences_file_path: Path,
         word_frequency_file_path: Path,
         config: DeckGeneratorConfig,
+        known_language_code: str,
+        target_language_code: str,
     ) -> AnkiDeckGenerator:
         filterer = SentenceFilterer.from_tatoeba_file(
             sentences_filepath=tatoeba_sentences_file_path,
@@ -71,6 +78,8 @@ class AnkiDeckGenerator:
             deck_output_folder=deck_output_folder,
             sentences_filterer=filterer,
             config=config,
+            known_language_code=known_language_code,
+            target_language_code=target_language_code,
         )
 
     def _generate_audio_files(
@@ -90,15 +99,13 @@ class AnkiDeckGenerator:
             )
         )
 
-        sentences_df[AUDIO_FILE_COL_NAME] = sentences_df[ORIGINAL_ID_COL_NAME].apply(
+        sentences_df[AUDIO_FILE_COL_NAME] = sentences_df[TARGET_ID_COL_NAME].apply(
             lambda sentence_id: str(self.audio_files_folder_path / f"{sentence_id}.mp3")
         )
 
         self.audio_generator.generate_sentences_audio(
-            sentences=cast(
-                list[str], sentences_df[ORIGINAL_SENTENCE_COL_NAME].tolist()
-            ),
-            sentences_ids=cast(list[int], sentences_df[ORIGINAL_ID_COL_NAME].tolist()),
+            sentences=cast(list[str], sentences_df[TARGET_SENTENCE_COL_NAME].tolist()),
+            sentences_ids=cast(list[int], sentences_df[TARGET_ID_COL_NAME].tolist()),
             sentences_paths=cast(list[str], sentences_df[AUDIO_FILE_COL_NAME].tolist()),
             overwrite_existing_files=configs_mismatch,
         )
@@ -119,17 +126,21 @@ class AnkiDeckGenerator:
             sentences_df=sentences_df, previous_config=previous_config
         )
 
-        sentences_df.to_csv(
-            path_or_buf=self.deck_sentences_data_file_path,
-            columns=[
-                ORIGINAL_ID_COL_NAME,
-                ORIGINAL_SENTENCE_COL_NAME,
+        sentences_df[
+            [
+                TARGET_ID_COL_NAME,  # TODO: Set all as constants
+                TARGET_SENTENCE_COL_NAME,
                 TRANSLATED_SENTENCE_COL_NAME,
+                "sentences_words",
                 "rarest_word",
                 "rarest_word_freq",
                 AUDIO_FILE_COL_NAME,
-            ],
-            index=False,
+            ]
+        ].to_json(
+            path_or_buf=self.deck_sentences_data_file_path,
+            force_ascii=False,
+            indent=1,
+            orient="records",
         )
 
         with open(file=self.deck_output_folder / "used_config.json", mode="w") as f:
@@ -138,21 +149,23 @@ class AnkiDeckGenerator:
     def make_deck(self) -> None:
         self.generate_deck_data()
 
-        deck_data_df = pandas.read_csv(
-            filepath_or_buffer=self.deck_sentences_data_file_path
+        deck_data_df = pandas.read_json(
+            path_or_buf=self.deck_sentences_data_file_path,
         )
 
-        deck_data_df["note_model"] = self._get_sentences_note_models(
+        cards_note_model = self._get_sentences_note_models(
             deck_data_df=deck_data_df,
         )
 
+        # TODO: Set ID as hash from deck name maybe ?
         my_deck = genanki.Deck(deck_id=2010120120, name=self.deck_name)
 
-        notes_data = deck_data_df.apply(
-            lambda row: row.note_model.make_note_from_data(row=row),
-            axis=1,
-        )
-        for note in notes_data:
+        for note_model, (_row_index, row) in zip(cards_note_model, deck_data_df.iterrows()):
+            note = note_model.make_note_from_data(
+                row=row,
+                target_language_code=self.target_language_code,  # TODO: Consistent naming for known and target language
+                translated_language_code=self.known_language_code,
+            )
             my_deck.add_note(note=note)
 
         package = genanki.Package(deck_or_decks=my_deck)
@@ -228,7 +241,7 @@ class AnkiDeckGenerator:
 
             if note_model_indices[note_index] == -1:
                 raise RuntimeError(
-                    f"Could not find a card type for sentence #{note_index} (ID: {deck_data_df[ORIGINAL_ID_COL_NAME][note_index]})"
+                    f"Could not find a card type for sentence #{note_index} (ID: {deck_data_df[TARGET_ID_COL_NAME][note_index]})"
                 )
 
         if self.config.plot_running_card_types_proportions:

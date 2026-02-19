@@ -24,7 +24,6 @@ _logger.setLevel(level=logging.DEBUG)
 
 
 def main() -> None:
-    # TODO: Ajouter un lien vers les mots du wikitionnaire
     sentences_filepath = Path("data/Sentence pairs in Italian-French - 2026-02-07.tsv")
 
     deck_generator = AnkiDeckGenerator.from_tatoeba_file(
@@ -32,6 +31,8 @@ def main() -> None:
         deck_output_folder=GENERATED_DECK_DATA_DIR / sentences_filepath.stem,
         tatoeba_sentences_file_path=sentences_filepath,
         word_frequency_file_path=Path("data/word_freq_it.csv"),
+        target_language_code="it",
+        known_language_code="fr",
         config=DeckGeneratorConfig(
             sentence_filtering_config=SentenceFilteringConfig(
                 min_word_count=4,
@@ -52,7 +53,7 @@ def main() -> None:
             listening_notes_proportion=0.4,
             translating_note_model=TranslatingNoteModel(),
             translating_notes_proportion=0.2,
-            plot_running_card_types_proportions=True,
+            plot_running_card_types_proportions=False,
         ),
     )
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-ORIGINAL_SENTENCE_COL_NAME = "original_sentence"
-ORIGINAL_ID_COL_NAME = "original_id"
+TARGET_SENTENCE_COL_NAME = "target_sentence"
+TARGET_ID_COL_NAME = "target_id"
 TRANSLATED_SENTENCE_COL_NAME = "translated_sentence"
 TRANSLATED_ID_COL_NAME = "translated_id"
 

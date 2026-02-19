@@ -6,7 +6,7 @@ import pandas
 
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
-    ORIGINAL_SENTENCE_COL_NAME,
+    TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
 
@@ -34,14 +34,26 @@ class NoteModelFields(DataClassJsonMixin):
 class NoteModel(DataClassJsonMixin):
     model_fields: NoteModelFields | None = None
 
-    def make_note_from_data(self, row: pandas.Series):
+    def make_note_from_data(
+        self,
+        row: pandas.Series,
+        target_language_code: str,
+        translated_language_code: str,
+    ) -> genanki.Note:
         assert self.model_fields is not None
+        wiki_hyperlinks: list[str] = [
+            f'<a href="https://{translated_language_code}.wiktionary.org/wiki/{word if word_idx > 0 else word.lower()}#{target_language_code}">{word}</a>'
+            for sentence in row["sentences_words"]
+            for word_idx, word in enumerate(sentence)
+        ]
+
         return genanki.Note(
             model=self.model_fields.model,
             fields=[
-                row[ORIGINAL_SENTENCE_COL_NAME],
+                row[TARGET_SENTENCE_COL_NAME],
                 row[TRANSLATED_SENTENCE_COL_NAME],
                 f"[sound:{Path(row[AUDIO_FILE_COL_NAME]).name}]",
+                " ".join(wiki_hyperlinks),
             ],
         )
 
@@ -56,15 +68,22 @@ class ReadingNoteModel(NoteModel):
             model_id=1607392319,
             name="Reading Note",
             fields=[
-                {"name": "Original sentence"},
+                {"name": "Target sentence"},
                 {"name": "Native sentence"},
                 {"name": "MyMedia"},
+                {"name": "Links"},
             ],
             templates=[
                 {
                     "name": "Reading",
-                    "qfmt": "{{Original sentence}}<br>{{MyMedia}}",
-                    "afmt": '{{FrontSide}}<hr id="answer">{{Native sentence}}',
+                    "qfmt": '<div align="center">{{Target sentence}}<br>{{MyMedia}}</div>',
+                    "afmt": """
+{{FrontSide}}
+<hr id="answer">
+<div align="center">{{Native sentence}}</div>
+
+<br>Wikitionaire: {{Links}}
+""",
                 },
             ],
             css="",
@@ -81,15 +100,22 @@ class ListeningNoteModel(NoteModel):
             model_id=1607392320,
             name="Listening Note",
             fields=[
-                {"name": "Original sentence"},
+                {"name": "Target sentence"},
                 {"name": "Native sentence"},
                 {"name": "MyMedia"},
+                {"name": "Links"},
             ],
             templates=[
                 {
                     "name": "Listening",
-                    "qfmt": "<br>{{MyMedia}}",
-                    "afmt": '{{FrontSide}}<hr id="answer">{{Original sentence}}<br>{{Native sentence}}',
+                    "qfmt": """<br>
+<div align="center">{{MyMedia}}</div>""",
+                    "afmt": """
+{{FrontSide}}<hr id="answer">
+<div align="center">{{Target sentence}}<br>{{Native sentence}}</div>
+
+<br>Wikitionaire: {{Links}}
+""",
                 },
             ],
             css="",
@@ -106,15 +132,20 @@ class TranslatingNoteModel(NoteModel):
             model_id=1607392321,
             name="Translating Note",
             fields=[
-                {"name": "Original sentence"},
+                {"name": "Target sentence"},
                 {"name": "Native sentence"},
                 {"name": "MyMedia"},
+                {"name": "Links"},
             ],
             templates=[
                 {
                     "name": "Translating",
-                    "qfmt": "{{Native sentence}}",
-                    "afmt": '{{FrontSide}}<br>{{MyMedia}}<hr id="answer">{{Original sentence}}',
+                    "qfmt": """<div align="center">{{Native sentence}}</div>""",
+                    "afmt": """
+{{FrontSide}}<hr id="answer"><div align="center">{{MyMedia}}<br>{{Target sentence}}</div>
+
+<br>Wikitionaire: {{Links}}
+""",
                 },
             ],
             css="",

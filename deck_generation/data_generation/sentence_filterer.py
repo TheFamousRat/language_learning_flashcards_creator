@@ -10,8 +10,8 @@ from pathlib import Path
 
 from deck_generation.bin.config import SentenceFilteringConfig
 from deck_generation.constants import (
-    ORIGINAL_ID_COL_NAME,
-    ORIGINAL_SENTENCE_COL_NAME,
+    TARGET_ID_COL_NAME,
+    TARGET_SENTENCE_COL_NAME,
     TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
@@ -50,8 +50,8 @@ class SentenceFilterer:
                 filepath_or_buffer=_sentences_path,
                 sep="	",
                 names=[
-                    ORIGINAL_ID_COL_NAME,
-                    ORIGINAL_SENTENCE_COL_NAME,
+                    TARGET_ID_COL_NAME,
+                    TARGET_SENTENCE_COL_NAME,
                     TRANSLATED_ID_COL_NAME,
                     TRANSLATED_SENTENCE_COL_NAME,
                 ],
@@ -119,7 +119,7 @@ class SentenceFilterer:
     ) -> pandas.Series:
         # Splits entries into sentences, and split these sentences into words
         sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\']|^)\s*(\p{Lu})"
-        split_sentences = sentences_df[ORIGINAL_SENTENCE_COL_NAME].apply(
+        split_sentences = sentences_df[TARGET_SENTENCE_COL_NAME].apply(
             lambda sentence: split_string_at_indices(
                 string_to_split=sentence,
                 split_indices=[
@@ -149,7 +149,7 @@ class SentenceFilterer:
 
         _logger.info("   Removing duplicate entries...")
         sentences_df = self.original_sentences_df.drop_duplicates(
-            subset=ORIGINAL_SENTENCE_COL_NAME
+            subset=TARGET_SENTENCE_COL_NAME
         ).drop_duplicates(subset=TRANSLATED_SENTENCE_COL_NAME)
 
         _logger.info("   Splitting entries into separate sentences...")
