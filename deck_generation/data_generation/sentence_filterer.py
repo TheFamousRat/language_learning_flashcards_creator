@@ -102,26 +102,29 @@ class SentenceFilterer:
                 for word, freq in zip(non_starting_words, non_starting_word_frequencies)
             ]
 
-        starting_words = [sentence_words[0] for sentence_words in sentences_words]
-        starting_word_frequencies = [
-            min(
-                self.word_to_freq.get(word.lower(), np.inf),
-                self.word_to_freq.get(word, np.inf),
+        starting_words = [
+            (
+                sentence_words[0]
+                if sentence_words[0] in self.word_to_freq
+                else sentence_words[0].lower()
             )
-            for word in starting_words
+            for sentence_words in sentences_words
+        ]
+        starting_word_frequencies = [
+            self.word_to_freq.get(word, np.inf) for word in starting_words
         ]
 
         word_frequencies = starting_word_frequencies + non_starting_word_frequencies
         words = starting_words + non_starting_words
         rarest_word_idx = np.argmin(word_frequencies)
 
-        return words[rarest_word_idx].upper(), word_frequencies[rarest_word_idx]
+        return words[rarest_word_idx], word_frequencies[rarest_word_idx]
 
     def _get_split_sentences_and_words(
         self, sentences_df: pandas.DataFrame
     ) -> pandas.Series:
         # Splits entries into sentences, and split these sentences into words
-        sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\']|^)\s*(\p{Lu})"
+        sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\'|\d|\-]|^)\s*(\p{Lu})"
         split_sentences = sentences_df[TARGET_SENTENCE_COL_NAME].apply(
             lambda sentence: split_string_at_indices(
                 string_to_split=sentence,
@@ -153,7 +156,12 @@ class SentenceFilterer:
         _logger.info("   Removing duplicate entries...")
         sentences_df = self.original_sentences_df.drop_duplicates(
             subset=TARGET_SENTENCE_COL_NAME
-        ).drop_duplicates(subset=TRANSLATED_SENTENCE_COL_NAME)
+        )
+
+        if TRANSLATED_SENTENCE_COL_NAME in sentences_df.columns:
+            sentences_df = sentences_df.drop_duplicates(
+                subset=TRANSLATED_SENTENCE_COL_NAME
+            )
 
         _logger.info("   Splitting entries into separate sentences...")
         sentences_df[SENTENCES_WORDS_COL_NAME] = self._get_split_sentences_and_words(

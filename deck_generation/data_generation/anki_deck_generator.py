@@ -70,6 +70,7 @@ class AnkiDeckGenerator:
         translated_language_code: str,
         target_language_code: str,
     ) -> AnkiDeckGenerator:
+        # TODO: Ajouter logique pour traduire les phrases automatiquement si elles n'en ont pas déjà
         filterer = SentenceFilterer.from_tatoeba_file(
             sentences_filepath=tatoeba_sentences_file_path,
             word_frequency_file_path=word_frequency_file_path,
