@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 import json
 from typing import cast
 import plotly.express as px  # type: ignore[import-untyped]
@@ -160,8 +161,9 @@ class AnkiDeckGenerator:
             deck_data_df=deck_data_df,
         )
 
-        # TODO: Set ID as hash from deck name maybe ?
-        my_deck = genanki.Deck(deck_id=2010120120, name=self.deck_name)
+        deck_id_hash = hashlib.blake2b(self.deck_name.encode(), digest_size=4).digest()
+        deck_id = int.from_bytes(deck_id_hash)
+        my_deck = genanki.Deck(deck_id=deck_id, name=self.deck_name)
 
         for note_model, (_row_index, row) in zip(
             cards_note_model, deck_data_df.iterrows()
