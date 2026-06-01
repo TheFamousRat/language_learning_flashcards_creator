@@ -110,13 +110,38 @@ class ListeningNoteModel(NoteModel):
             templates=[
                 {
                     "name": "Listening",
-                    "qfmt": """<br>
-<div align="center">{{MyMedia}}</div>""",
-                    "afmt": """
-{{FrontSide}}<hr id="answer">
-<div align="center">{{Target sentence}}<br>{{Native sentence}}</div>
+                    "qfmt": """
+<br>
+<div align="center">{{MyMedia}}<br><div id="userFrontInput"><br>📝? <input id="inputBox" type="text"></div>
+</div>
+<script>
+   const box = document.getElementById("inputBox");
+   
+   box.addEventListener("input", function() {
+   	sessionStorage.setItem("frontInput", box.value);
+   
+   });
+   
+</script>
 
+""",
+                    "afmt": """
+
+{{FrontSide}}
+<hr id="answer">
+<div align="center">
+   ✅: {{Target sentence}}<br>
+   📝: <span id="typedAnswer" ></span>
+   <br><br>{{Native sentence}}
+</div>
+<hr>
+<script>
+   document.getElementById("typedAnswer").textContent =
+       sessionStorage.getItem("frontInput") || "";
+   document.getElementById("userFrontInput").remove();
+</script>
 <br>Wikitionaire: {{Links}}
+
 """,
                 },
             ],
@@ -142,11 +167,35 @@ class TranslatingNoteModel(NoteModel):
             templates=[
                 {
                     "name": "Translating",
-                    "qfmt": """<div align="center">{{Native sentence}}</div>""",
-                    "afmt": """
-{{FrontSide}}<hr id="answer"><div align="center">{{MyMedia}}<br>{{Target sentence}}</div>
+                    "qfmt": """
+<div align="center">
+   {{Native sentence}}<br>
+   <div id="userFrontInput"><br>📝? <input id="inputBox" type="text"></div>
+</div>
+<script>
+   const box = document.getElementById("inputBox");
+   
+   box.addEventListener("input", function() {
+       sessionStorage.setItem("ankiInput", box.value);
+   });
+</script>
 
+""",
+                    "afmt": """
+
+{{FrontSide}}
+<hr id="answer">
+<div align="center">
+   {{MyMedia}}<br>✅: {{Target sentence}}<br>
+   📝: <span id="typedAnswer" ></span>
+</div>
 <br>Wikitionaire: {{Links}}
+<script>
+   document.getElementById("typedAnswer").textContent =
+       sessionStorage.getItem("ankiInput") || "";
+   document.getElementById("userFrontInput").remove();
+</script>
+
 """,
                 },
             ],

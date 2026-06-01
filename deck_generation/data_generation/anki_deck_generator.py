@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 import json
 from typing import cast
 import plotly.express as px  # type: ignore[import-untyped]
@@ -160,8 +161,9 @@ class AnkiDeckGenerator:
             deck_data_df=deck_data_df,
         )
 
-        # TODO: Set ID as hash from deck name maybe ?
-        my_deck = genanki.Deck(deck_id=2010120120, name=self.deck_name)
+        deck_id_hash = hashlib.blake2b(self.deck_name.encode(), digest_size=4).digest()
+        deck_id = int.from_bytes(deck_id_hash)
+        my_deck = genanki.Deck(deck_id=deck_id, name=self.deck_name)
 
         for note_model, (_row_index, row) in zip(
             cards_note_model, deck_data_df.iterrows()
@@ -198,10 +200,9 @@ class AnkiDeckGenerator:
         )
 
         px.histogram(
-            running_counts_df,
+            running_counts_df.rolling(window=200, min_periods=1).sum(),
             x=running_counts_df.index,
             y=[c for c in running_counts_df.columns],
-            cumulative=True,
             barnorm="percent",
             nbins=len(note_model_indices) // 20,
             title="Running proportion of cards types with deck progression",
@@ -231,12 +232,10 @@ class AnkiDeckGenerator:
         models_notes_count = np.zeros_like(models_target_proportions, dtype=np.int32)
         note_model_indices = np.full(len(deck_data_df), fill_value=-1, dtype=np.int32)
         for note_index in range(len(deck_data_df)):
-            potential_running_proportions = (models_notes_count + 1) / (note_index + 1)
-            proportion_distance = (
-                potential_running_proportions / models_target_proportions
-            ) - 1
+            target_cards_count = np.round((note_index + 1) * models_target_proportions)
+            target_cards_count_distance = models_notes_count - target_cards_count
 
-            for closest_model_index in proportion_distance.argsort():
+            for closest_model_index in target_cards_count_distance.argsort():
                 if valid_model_notes_masks[closest_model_index][note_index]:
                     note_model_indices[note_index] = closest_model_index
                     models_notes_count[closest_model_index] += 1
