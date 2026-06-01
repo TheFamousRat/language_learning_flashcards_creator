@@ -233,9 +233,9 @@ class AnkiDeckGenerator:
         note_model_indices = np.full(len(deck_data_df), fill_value=-1, dtype=np.int32)
         for note_index in range(len(deck_data_df)):
             target_cards_count = np.round((note_index + 1) * models_target_proportions)
-            target_cards_count_distance = target_cards_count - models_notes_count
+            target_cards_count_distance = models_notes_count - target_cards_count
 
-            for closest_model_index in target_cards_count_distance.argsort()[::-1]:
+            for closest_model_index in target_cards_count_distance.argsort():
                 if valid_model_notes_masks[closest_model_index][note_index]:
                     note_model_indices[note_index] = closest_model_index
                     models_notes_count[closest_model_index] += 1
