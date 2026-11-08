@@ -1,6 +1,4 @@
-from __future__ import annotations
 import pytest
-import numpy as np
 
 from tests.dummy_word_frequencies import (
     CHINESE_WORD_FREQUENCIES,
@@ -10,87 +8,7 @@ from tests.dummy_word_frequencies import (
 )
 
 
-import re
-
-LETTER_RUN_PATTERN = re.compile(r"[^\W\d_]+")
-
-
-def segment_sentence(
-    sentence: str, token_frequencies: dict[str, int]
-) -> list[tuple[int, int, str]]:
-    total_log_frequency = np.log(sum(token_frequencies.values()))
-    token_to_log_probability = {
-        token: np.log(frequency) - total_log_frequency
-        for token, frequency in token_frequencies.items()
-    }
-    longest_token_length = max(map(len, token_frequencies))
-
-    sentence_length = len(sentence)
-    best_scores: list[tuple[int, float]] = [(0, 0.0)] * (sentence_length + 1)
-    best_starts: list[int] = [0] * (sentence_length + 1)
-    best_tokens: list[str | None] = [None] * (sentence_length + 1)
-
-    for end in range(1, sentence_length + 1):
-        best_scores[end] = best_scores[end - 1]
-        best_starts[end] = end - 1
-
-        for start in range(max(0, end - longest_token_length), end):
-            substring = sentence[start:end]
-            possible_tokens = (
-                [substring, substring[0].lower() + substring[1:]]
-                if start == 0
-                else [substring]
-            )
-            candidate_tokens = [
-                token for token in possible_tokens if token in token_to_log_probability
-            ]
-            if not candidate_tokens:
-                continue
-
-            token = max(candidate_tokens, key=token_to_log_probability.__getitem__)
-            explained_characters, log_probability = best_scores[start]
-            score = (
-                explained_characters + end - start,
-                log_probability + token_to_log_probability[token],
-            )
-
-            if score > best_scores[end]:
-                best_scores[end] = score
-                best_starts[end] = start
-                best_tokens[end] = token
-
-    token_spans: list[tuple[int, int, str]] = []
-    position = sentence_length
-    while position > 0:
-        token = best_tokens[position]
-        start = best_starts[position]
-        if token is not None:
-            token_spans.append((start, position, token))
-        position = start
-
-    return token_spans[::-1]
-
-
-def tokenize_sentence(sentence: str, token_frequencies: dict[str, int]) -> list[str]:
-    token_spans = segment_sentence(sentence, token_frequencies)
-
-    explained_positions = {
-        position for start, end, _ in token_spans for position in range(start, end)
-    }
-
-    positions_inside_names: set[int] = set()
-    for word_match in LETTER_RUN_PATTERN.finditer(sentence):
-        word_positions = range(word_match.start(), word_match.end())
-        is_capitalized = word_match.group()[0].isupper()
-        is_fully_explained = all(
-            position in explained_positions for position in word_positions
-        )
-        if is_capitalized and not is_fully_explained:
-            positions_inside_names.update(word_positions)
-
-    return [
-        token for start, _, token in token_spans if start not in positions_inside_names
-    ]
+from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
 
 
 @pytest.mark.parametrize(
@@ -413,7 +331,7 @@ def test_it_tokenizes_sentences_from_a_frequency_dictionary_as_expected(
     word_frequencies: dict[str, int],
     expected_tokens: list[str],
 ) -> None:
-    assert (
-        tokenize_sentence(sentence=sentence, token_frequencies=word_frequencies)
-        == expected_tokens
+    tokenizer = ViterbiTokenizer.from_token_frequencies(
+        token_frequencies=word_frequencies
     )
+    assert tokenizer.tokenize_sentence(sentence=sentence) == expected_tokens
