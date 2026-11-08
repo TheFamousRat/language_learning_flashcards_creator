@@ -1,15 +1,16 @@
 from dataclasses import dataclass
 from pathlib import Path
-from dataclasses_json import DataClassJsonMixin
+
 import genanki  # type: ignore[import-untyped]
 import pandas
+from dataclasses_json import DataClassJsonMixin
 
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
+    RAREST_WORD_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
-    SENTENCES_WORDS_COL_NAME,
-    RAREST_WORD_COL_NAME,
 )
 
 
@@ -115,13 +116,13 @@ class ListeningNoteModel(NoteModel):
 <div align="center">{{MyMedia}}<br><div id="userFrontInput"><br>📝? <input id="inputBox" type="text"></div>
 </div>
 <script>
-   const box = document.getElementById("inputBox");
-   
-   box.addEventListener("input", function() {
-   	sessionStorage.setItem("frontInput", box.value);
-   
-   });
-   
+(function() {
+    const box = document.getElementById("inputBox");
+
+    box.addEventListener("input", function() {
+        sessionStorage.setItem("frontInput", box.value);
+    });
+})();
 </script>
 
 """,
@@ -136,9 +137,13 @@ class ListeningNoteModel(NoteModel):
 </div>
 <hr>
 <script>
-   document.getElementById("typedAnswer").textContent =
-       sessionStorage.getItem("frontInput") || "";
-   document.getElementById("userFrontInput").remove();
+(function() {
+    document.getElementById("typedAnswer").textContent =
+        sessionStorage.getItem("frontInput") || "";
+
+    document.getElementById("userFrontInput").remove();
+    sessionStorage.setItem("frontInput", "");
+})();
 </script>
 <br>Wikitionaire: {{Links}}
 
@@ -173,11 +178,13 @@ class TranslatingNoteModel(NoteModel):
    <div id="userFrontInput"><br>📝? <input id="inputBox" type="text"></div>
 </div>
 <script>
-   const box = document.getElementById("inputBox");
-   
-   box.addEventListener("input", function() {
-       sessionStorage.setItem("ankiInput", box.value);
-   });
+(function() {
+    const box = document.getElementById("inputBox");
+
+    box.addEventListener("input", function() {
+        sessionStorage.setItem("frontInput", box.value);
+    });
+})();
 </script>
 
 """,
@@ -190,10 +197,15 @@ class TranslatingNoteModel(NoteModel):
    📝: <span id="typedAnswer" ></span>
 </div>
 <br>Wikitionaire: {{Links}}
+
 <script>
-   document.getElementById("typedAnswer").textContent =
-       sessionStorage.getItem("ankiInput") || "";
-   document.getElementById("userFrontInput").remove();
+(function() {
+    document.getElementById("typedAnswer").textContent =
+        sessionStorage.getItem("frontInput") || "";
+
+    document.getElementById("userFrontInput").remove();
+    sessionStorage.setItem("frontInput", "");
+})();
 </script>
 
 """,

@@ -1,31 +1,31 @@
 from __future__ import annotations
+
 import hashlib
 import json
+import logging
+from pathlib import Path
 from typing import cast
-import plotly.express as px  # type: ignore[import-untyped]
+
 import genanki  # type: ignore[import-untyped]
 import numpy as np
 import pandas
-from pathlib import Path
-
+import plotly.express as px  # type: ignore[import-untyped]
 
 from deck_generation.bin.config import DeckGeneratorConfig
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
+    RAREST_WORD_COL_NAME,
+    RAREST_WORD_FREQ_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
     TARGET_ID_COL_NAME,
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
-    SENTENCES_WORDS_COL_NAME,
-    RAREST_WORD_COL_NAME,
-    RAREST_WORD_FREQ_COL_NAME,
 )
 from deck_generation.data_generation.kokoro_sentence_audio_generator import (
     KokoroSentenceAudioGenerator,
 )
 from deck_generation.data_generation.note_models import NoteModel
 from deck_generation.data_generation.sentence_filterer import SentenceFilterer
-
-import logging
 
 logging.basicConfig()
 
@@ -71,6 +71,7 @@ class AnkiDeckGenerator:
         translated_language_code: str,
         target_language_code: str,
     ) -> AnkiDeckGenerator:
+        # TODO: Le générateur devrait prendre une liste de "Dataset" en entrée, rien ne devrait encoder Tatoeba hors du pur chargement des données.
         # TODO: Ajouter logique pour traduire les phrases automatiquement si elles n'en ont pas déjà
         filterer = SentenceFilterer.from_tatoeba_file(
             sentences_filepath=tatoeba_sentences_file_path,

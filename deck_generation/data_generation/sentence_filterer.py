@@ -1,26 +1,24 @@
 from __future__ import annotations
-from typing import Callable
 
+import logging
+from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 import pandas
-
-
-from pathlib import Path
+import regex
 
 from deck_generation.bin.config import SentenceFilteringConfig
 from deck_generation.constants import (
+    RAREST_WORD_COL_NAME,
+    RAREST_WORD_FREQ_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
     TARGET_ID_COL_NAME,
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
-    SENTENCES_WORDS_COL_NAME,
-    RAREST_WORD_COL_NAME,
-    RAREST_WORD_FREQ_COL_NAME,
 )
-import regex
-import logging
-
+from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
 from deck_generation.utils import split_string_at_indices
 
 _logger = logging.getLogger(name=__file__)
@@ -66,6 +64,9 @@ class SentenceFilterer:
         word_freq_df = pandas.read_csv(
             filepath_or_buffer=word_frequency_file_path, sep=" ", names=["Word", "freq"]
         )
+        word_freq_df["Word"] = word_freq_df["Word"].astype(str)
+        word_freq_df["freq"] = word_freq_df["freq"].astype(int)
+        word_freq_df = word_freq_df.dropna()
 
         word_to_freq: dict[str, int] = dict(
             zip(word_freq_df["Word"], word_freq_df["freq"])
@@ -152,6 +153,10 @@ class SentenceFilterer:
         # This similarity would not be semantic, as learning two ways to say the same thing is useful, but instead
         # a sort of Levenshtein distance to measure the number of required letter changes between two sentences
         _logger.info("Running sentence filtering.")
+
+        tokenizer = ViterbiTokenizer.from_token_frequencies(
+            token_frequencies=self.word_to_freq
+        )
 
         _logger.info("   Removing duplicate entries...")
         sentences_df = self.original_sentences_df.drop_duplicates(

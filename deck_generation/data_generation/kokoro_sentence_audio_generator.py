@@ -1,12 +1,11 @@
+import logging
 from pathlib import Path
-
 
 import pandas
 import soundfile as sf  # type: ignore[import-untyped]
 import torch
 import tqdm
 from kokoro import KPipeline  # type: ignore[import-untyped]
-import logging
 
 from deck_generation.bin.config import AudioGenerationConfig
 

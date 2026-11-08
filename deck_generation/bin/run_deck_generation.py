@@ -1,7 +1,8 @@
 from __future__ import annotations
+
+import logging
 from pathlib import Path
 
-from deck_generation.data_generation.anki_deck_generator import AnkiDeckGenerator
 from deck_generation.bin.config import (
     AudioGenerationConfig,
     DeckGeneratorConfig,
@@ -10,12 +11,12 @@ from deck_generation.bin.config import (
 from deck_generation.constants import (
     GENERATED_DECK_DATA_DIR,
 )
+from deck_generation.data_generation.anki_deck_generator import AnkiDeckGenerator
 from deck_generation.data_generation.note_models import (
     ListeningNoteModel,
     ReadingNoteModel,
     TranslatingNoteModel,
 )
-import logging
 
 logging.basicConfig()
 
