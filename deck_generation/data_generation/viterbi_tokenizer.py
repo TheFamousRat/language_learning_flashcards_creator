@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 
 import numpy as np
+import regex
 
 
 class ViterbiTokenizer:
     LETTER_RUN_PATTERN = re.compile(r"[^\W\d_]+")
+    NOISY_CHARACTER_PATTERN = regex.compile(
+        r"[^\p{L}\p{M}\p{N}'\-‐‑]|(?<!\p{L})[-‐‑]|[-‐‑](?!\p{L})"
+    )
     SENTENCE_TERMINATORS = ".!?…:。！？："
     OPENING_CHARACTERS = "\"'«»“”„‘’‹›¿¡([{<-–—―"
 
@@ -51,6 +55,7 @@ class ViterbiTokenizer:
     def _segment_sentence(self, sentence: str) -> list[tuple[int, int, str]]:
         sentence_length = len(sentence)
         sentence_initial_positions = self._find_sentence_initial_positions(sentence)
+        sentence = regex.sub(self.NOISY_CHARACTER_PATTERN, " ", sentence)
 
         best_scores: list[tuple[int, float]] = [(0, 0.0)] * (sentence_length + 1)
         best_starts: list[int] = [0] * (sentence_length + 1)
