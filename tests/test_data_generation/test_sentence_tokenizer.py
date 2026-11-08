@@ -1,14 +1,12 @@
 import pytest
 
+from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
 from tests.dummy_word_frequencies import (
     CHINESE_WORD_FREQUENCIES,
     ENGLISH_WORD_FREQUENCIES,
     FRENCH_WORD_FREQUENCIES,
     GERMAN_WORD_FREQUENCIES,
 )
-
-
-from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
 
 
 @pytest.mark.parametrize(
@@ -323,6 +321,72 @@ from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
             CHINESE_WORD_FREQUENCIES,
             ["研究", "生命", "的", "起源", "是", "一个", "有趣", "的", "问题"],
             id="long_chinese_most_probable_split",
+        ),
+        pytest.param(
+            'You said: "Wow Mary, bread is cheap here!"',
+            ENGLISH_WORD_FREQUENCIES,
+            ["you", "said", "wow", "bread", "is", "cheap", "here"],
+            id="mid_sentence_capital_english_quote_after_colon_and_name_inside_quote",
+        ),
+        pytest.param(
+            "Bread and water are cheap here. Cats like water.",
+            ENGLISH_WORD_FREQUENCIES,
+            ["bread", "and", "water", "are", "cheap", "here", "cats", "like", "water"],
+            id="mid_sentence_capital_english_after_period",
+        ),
+        pytest.param(
+            'You said: "Mary is here."',
+            ENGLISH_WORD_FREQUENCIES,
+            ["you", "said", "is", "here"],
+            id="mid_sentence_capital_english_unknown_name_after_quote_is_dropped",
+        ),
+        pytest.param(
+            "Bread is cheap. Paris is here.",
+            ENGLISH_WORD_FREQUENCIES,
+            ["bread", "is", "cheap", "is", "here"],
+            id="mid_sentence_capital_english_name_after_period_does_not_leak_embedded_word",
+        ),
+        pytest.param(
+            "You like Cats.",
+            ENGLISH_WORD_FREQUENCIES,
+            ["you", "like"],
+            id="mid_sentence_capital_english_without_boundary_is_treated_as_name",
+        ),
+        pytest.param(
+            "Je sais : « Alors, je mange du pain. »",
+            FRENCH_WORD_FREQUENCIES,
+            ["je", "sais", "alors", "je", "mange", "du", "pain"],
+            id="mid_sentence_capital_french_guillemets_after_colon",
+        ),
+        pytest.param(
+            "Pain ici ? Alors je mange.",
+            FRENCH_WORD_FREQUENCIES,
+            ["pain", "ici", "alors", "je", "mange"],
+            id="mid_sentence_capital_french_after_spaced_question_mark",
+        ),
+        pytest.param(
+            "– Alors, je mange du pain.",
+            FRENCH_WORD_FREQUENCIES,
+            ["alors", "je", "mange", "du", "pain"],
+            id="mid_sentence_capital_french_leading_dialogue_dash",
+        ),
+        pytest.param(
+            "Ich finde: „Das Brot ist gut.“",
+            GERMAN_WORD_FREQUENCIES,
+            ["ich", "finde", "das", "Brot", "ist", "gut"],
+            id="mid_sentence_capital_german_quote_lowercases_article_and_keeps_noun",
+        ),
+        pytest.param(
+            "Brot ist gut. Wasser ist neu.",
+            GERMAN_WORD_FREQUENCIES,
+            ["Brot", "ist", "gut", "Wasser", "ist", "neu"],
+            id="mid_sentence_capital_german_noun_after_period_keeps_its_capital",
+        ),
+        pytest.param(
+            "他说：“我喜欢吃中国菜。”",
+            CHINESE_WORD_FREQUENCIES,
+            ["他", "说", "我", "喜欢", "吃", "中国菜"],
+            id="mid_sentence_capital_chinese_is_unaffected",
         ),
     ],
 )

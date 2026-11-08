@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import re
+
 import numpy as np
 
 
 class ViterbiTokenizer:
     LETTER_RUN_PATTERN = re.compile(r"[^\W\d_]+")
+    SENTENCE_TERMINATORS = ".!?…:。！？："
+    OPENING_CHARACTERS = "\"'«»“”„‘’‹›¿¡([{<-–—―"
 
     def __init__(
         self, token_to_log_probability: dict[str, float], longest_token_length: int
@@ -29,8 +32,25 @@ class ViterbiTokenizer:
             longest_token_length=longest_token_length,
         )
 
+    def _find_sentence_initial_positions(self, sentence: str) -> set[int]:
+        sentence_initial_positions: set[int] = set()
+
+        for word_match in self.LETTER_RUN_PATTERN.finditer(sentence):
+            position = word_match.start() - 1
+            while position >= 0 and (
+                sentence[position].isspace()
+                or sentence[position] in self.OPENING_CHARACTERS
+            ):
+                position -= 1
+
+            if position < 0 or sentence[position] in self.SENTENCE_TERMINATORS:
+                sentence_initial_positions.add(word_match.start())
+
+        return sentence_initial_positions
+
     def _segment_sentence(self, sentence: str) -> list[tuple[int, int, str]]:
         sentence_length = len(sentence)
+        sentence_initial_positions = self._find_sentence_initial_positions(sentence)
 
         best_scores: list[tuple[int, float]] = [(0, 0.0)] * (sentence_length + 1)
         best_starts: list[int] = [0] * (sentence_length + 1)
@@ -43,7 +63,7 @@ class ViterbiTokenizer:
                 substring = sentence[start:end]
                 possible_tokens = (
                     [substring, substring[0].lower() + substring[1:]]
-                    if start == 0
+                    if start in sentence_initial_positions
                     else [substring]
                 )
                 candidate_tokens = [
