@@ -77,7 +77,7 @@ class SentenceFilterer:
             word_to_freq=word_to_freq,
         )
 
-    @property
+    @property #TODO: Make cached instead of lazy
     def original_sentences_df(self) -> pandas.DataFrame:
         if self._original_sentences_df is None:
             self._original_sentences_df = self._sentences_loader()
@@ -87,6 +87,7 @@ class SentenceFilterer:
     def _get_rarest_word_frequency(
         self, sentences_words: list[list[str]], only_proper_nouns_capitalized: bool
     ):
+        # TODO: Unused now
         # We assume that non-word starting words are capitalized properly
         non_starting_words = [
             sentence_word
@@ -124,6 +125,7 @@ class SentenceFilterer:
     def _get_split_sentences_and_words(
         self, sentences_df: pandas.DataFrame
     ) -> pandas.Series:
+        # TODO: Unused now
         # Splits entries into sentences, and split these sentences into words
         sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\'|\d|\-]|^)\s*(\p{Lu})"
         split_sentences = sentences_df[TARGET_SENTENCE_COL_NAME].apply(
@@ -169,9 +171,9 @@ class SentenceFilterer:
             )
 
         _logger.info("   Splitting entries into separate sentences...")
-        sentences_df[SENTENCES_WORDS_COL_NAME] = self._get_split_sentences_and_words(
-            sentences_df=sentences_df
-        )
+        sentences_df[SENTENCES_WORDS_COL_NAME] = sentences_df[
+            TARGET_SENTENCE_COL_NAME
+        ].apply(lambda sentence: tokenizer.tokenize_sentence(sentence))
 
         _logger.info("   Removing entries out of word count range...")
         sentences_lengths = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
@@ -183,14 +185,16 @@ class SentenceFilterer:
             sentences_lengths <= config.max_word_count
         )
         sentences_df = sentences_df[sentences_length_mask]
-        sentences_df = sentences_df.reset_index(drop=True)
+        sentences_df = sentences_df.reset_index(
+            drop=True
+        )  # TODO: Ideally, remove. We'll probably want to track other sentence elements by index
 
         _logger.info("   Registering least frequent word per sentence...")
         rarest_word_and_frequency = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
-            lambda sentence: self._get_rarest_word_frequency(
-                sentences_words=sentence,
-                only_proper_nouns_capitalized=config.only_proper_nouns_capitalized,
-            )
+            lambda words_list: sorted(
+                {word: self.word_to_freq[word] for word in words_list}.items(),
+                key=lambda x: x[1],
+            )[:2][-1] # TODO: Make 2 (meaning the 2nd rarest word) configurable
         )
         sentences_df[[RAREST_WORD_COL_NAME, RAREST_WORD_FREQ_COL_NAME]] = (
             pandas.DataFrame(rarest_word_and_frequency.to_list())
