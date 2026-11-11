@@ -3,3 +3,4 @@
 .venv./*
 generated_deck_data/*
 data/*
+dist/*

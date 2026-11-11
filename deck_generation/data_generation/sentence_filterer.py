@@ -85,16 +85,16 @@ class SentenceFilterer:
         return self._sentences_loader()
 
     def _get_filtered_similar_sentences_indices(
-        self, sentences_group: pandas.DataFrame, group_word: str
+        self, sentences_group_words: pandas.Series, group_word: str
     ) -> pandas.Index:
-        group_size = len(sentences_group)
+        group_size = len(sentences_group_words)
         kept_indices_mask = np.ones(shape=(group_size), dtype=bool)
 
-        sentences_unique_words = sentences_group[SENTENCES_WORDS_COL_NAME].apply(
+        sentences_unique_words = sentences_group_words.apply(
             lambda sentence: set(sentence).difference({group_word})
         )
         group_unique_words: set[str] = set()
-        for words in sentences_group[SENTENCES_WORDS_COL_NAME]:
+        for words in sentences_group_words:
             group_unique_words.update(words)
         word_to_idx = {word: i for i, word in enumerate(group_unique_words)}
         weights_matrix = np.zeros(
@@ -112,34 +112,30 @@ class SentenceFilterer:
         )
         union_mat = cardinality_mat + cardinality_mat.T - intersection_mat
         sim_matrix = intersection_mat / union_mat
+        np.fill_diagonal(sim_matrix, 0)
 
-        np.fill_diagonal(
-            sim_matrix, 0
-        )  # TODO: Add config field so that some similarity is acceptable
-        while kept_indices_mask.sum() > self.config.max_sentences_count_per_new_word:
-            if sim_matrix.max() == 0.0:
-                kept_indices_mask[
-                    np.where(kept_indices_mask)[0][
-                        self.config.max_sentences_count_per_new_word :
-                    ]
-                ] = False  # TODO: Maybe sort by eg sentence length before removing other sentences
-                break
-
+        while sim_matrix.max() > self.config.max_sentence_similarity_per_new_word:
             index_to_remove = np.unravel_index(sim_matrix.argmax(), sim_matrix.shape)[0]
             sim_matrix[index_to_remove, :] = 0
             sim_matrix[:, index_to_remove] = 0
             kept_indices_mask[index_to_remove] = False
 
-        kept_indices = sentences_group.index[kept_indices_mask]
+            if kept_indices_mask.sum() == self.config.max_sentences_count_per_new_word:
+                break
+
+        kept_indices_mask[
+            np.where(kept_indices_mask)[0][
+                self.config.max_sentences_count_per_new_word :
+            ]
+        ] = False  # TODO: Maybe sort by eg sentence length before removing other sentences
+
+        kept_indices = sentences_group_words.index[kept_indices_mask]
 
         return kept_indices
 
     def _get_filtered_group_sentences_indices(
         self, sentences_df: pandas.DataFrame
     ) -> pandas.Index:
-        # TODO: Test with too many dissimilar sentences (5 very different sentences, 2 must be kept)
-        # TODO: Basic usage test (3 sentences to keep, 2 very different and 2 quite close)
-        # TODO: Test that it behaves correctly with edge casey sentences count
         sentences_groups_by_rarest_word = sentences_df.groupby(RAREST_WORD_COL_NAME)
         filtered_sentences_indexes = pandas.Index([])
         for group_word, sentences_group in tqdm.tqdm(
@@ -151,7 +147,8 @@ class SentenceFilterer:
 
             if group_size > self.config.max_sentences_count_per_new_word:
                 kept_indices = self._get_filtered_similar_sentences_indices(
-                    sentences_group=sentences_group, group_word=group_word
+                    sentences_group_words=sentences_group[SENTENCES_WORDS_COL_NAME],
+                    group_word=group_word,
                 )
 
             filtered_sentences_indexes = filtered_sentences_indexes.append(kept_indices)
