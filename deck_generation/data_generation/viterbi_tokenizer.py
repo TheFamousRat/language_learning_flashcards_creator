@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import math
 import re
 
-import numpy as np
 import regex
 
 
@@ -24,9 +24,9 @@ class ViterbiTokenizer:
     def from_token_frequencies(
         cls, token_frequencies: dict[str, int]
     ) -> ViterbiTokenizer:
-        total_log_frequency = np.log(sum(token_frequencies.values()))
+        total_log_frequency = math.log(sum(token_frequencies.values()))
         token_to_log_probability = {
-            token: np.log(frequency) - total_log_frequency
+            token: math.log(frequency) - total_log_frequency
             for token, frequency in token_frequencies.items()
         }
         longest_token_length = max(map(len, token_frequencies))
