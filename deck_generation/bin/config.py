@@ -1,7 +1,5 @@
 from dataclasses import dataclass, field
 
-from dataclasses_json import DataClassJsonMixin, Undefined, dataclass_json
-
 from deck_generation.data_generation.note_models import (
     ListeningNoteModel,
     ReadingNoteModel,
@@ -9,23 +7,20 @@ from deck_generation.data_generation.note_models import (
 )
 
 
-@dataclass_json(undefined=Undefined.EXCLUDE)
 @dataclass(frozen=True)
-class SentenceFilteringConfig(DataClassJsonMixin):
+class SentenceFilteringConfig:
     min_word_count: int
     max_word_count: int
     max_sentences_count_per_new_word: int
     only_proper_nouns_capitalized: bool
 
 
-@dataclass_json(undefined=Undefined.EXCLUDE)
 @dataclass(frozen=True)
-class AudioGenerationConfig(DataClassJsonMixin):
+class AudioGenerationConfig:
     voices: list[str]
     language_code: str
 
 
-@dataclass_json(undefined=Undefined.EXCLUDE)
 @dataclass(frozen=True)
 class DeckGeneratorConfig:
     sentence_filtering_config: SentenceFilteringConfig

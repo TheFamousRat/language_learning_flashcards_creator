@@ -200,7 +200,9 @@ class SentenceFilterer:
             pandas.DataFrame(rarest_word_and_frequency.to_list())
         )
 
-        filtered_sentences_indexes = self._get_filtered_group_sentences_indices(sentences_df=sentences_df)
+        filtered_sentences_indexes = self._get_filtered_group_sentences_indices(
+            sentences_df=sentences_df
+        )
         sentences_df = sentences_df.loc[filtered_sentences_indexes].sort_values(
             [RAREST_WORD_FREQ_COL_NAME, RAREST_WORD_COL_NAME], ascending=False
         )

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 import hashlib
 import json
 import logging
 from pathlib import Path
 from typing import cast
 
+import dacite
 import genanki  # type: ignore[import-untyped]
 import numpy as np
 import pandas
@@ -76,7 +78,7 @@ class AnkiDeckGenerator:
         filterer = SentenceFilterer.from_tatoeba_file(
             sentences_filepath=tatoeba_sentences_file_path,
             word_frequency_file_path=word_frequency_file_path,
-            config=config.sentence_filtering_config
+            config=config.sentence_filtering_config,
         )
 
         return AnkiDeckGenerator(
@@ -120,7 +122,9 @@ class AnkiDeckGenerator:
         previous_config: DeckGeneratorConfig | None = None
         if self.config_file.exists():
             with open(file=self.config_file, mode="r") as f:
-                previous_config = DeckGeneratorConfig.from_json(json.load(fp=f))
+                previous_config = dacite.from_dict(
+                    data_class=DeckGeneratorConfig, data=json.load(fp=f)
+                )
 
         # TODO: Add condition to check whether the data needs to be regenerated or not
         sentences_df = self.sentences_filterer.get_filtered_sentences_df()
@@ -148,7 +152,7 @@ class AnkiDeckGenerator:
         )
 
         with open(file=self.deck_output_folder / "used_config.json", mode="w") as f:
-            json.dump(obj=self.config.to_json(), fp=f, indent=4)
+            json.dump(obj=asdict(self.config), fp=f, indent=4)
 
     def make_deck(self) -> None:
         self.generate_deck_data()

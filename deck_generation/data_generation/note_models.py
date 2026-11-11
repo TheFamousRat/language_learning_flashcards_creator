@@ -3,7 +3,6 @@ from pathlib import Path
 
 import genanki  # type: ignore[import-untyped]
 import pandas
-from dataclasses_json import DataClassJsonMixin
 
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
@@ -15,7 +14,7 @@ from deck_generation.constants import (
 
 
 @dataclass(frozen=True)
-class NoteModelFields(DataClassJsonMixin):
+class NoteModelFields:
     model_id: int
     name: str
     fields: list[dict]
@@ -34,7 +33,7 @@ class NoteModelFields(DataClassJsonMixin):
 
 
 @dataclass()
-class NoteModel(DataClassJsonMixin):
+class NoteModel:
     model_fields: NoteModelFields | None = None
 
     def make_note_from_data(
