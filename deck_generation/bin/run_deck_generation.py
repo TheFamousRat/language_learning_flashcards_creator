@@ -41,7 +41,7 @@ def main() -> None:
                 min_word_count=4,
                 max_word_count=20,
                 max_sentences_count_per_new_word=2,
-                only_proper_nouns_capitalized=True,
+                max_sentence_similarity_per_new_word=0.25,
             ),
             audio_generation_config=AudioGenerationConfig(
                 language_code="i",

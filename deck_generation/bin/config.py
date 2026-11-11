@@ -9,10 +9,10 @@ from deck_generation.data_generation.note_models import (
 
 @dataclass(frozen=True)
 class SentenceFilteringConfig:
-    min_word_count: int
-    max_word_count: int
-    max_sentences_count_per_new_word: int
-    only_proper_nouns_capitalized: bool
+    min_word_count: int = 4
+    max_word_count: int = 20
+    max_sentences_count_per_new_word: int = 2
+    max_sentence_similarity_per_new_word: float = 0.25
 
 
 @dataclass(frozen=True)
