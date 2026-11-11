@@ -29,7 +29,7 @@ from deck_generation.data_generation.sentence_filterer import SentenceFilterer
 
 logging.basicConfig()
 
-_logger = logging.getLogger(name=__file__)
+_logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)
 
 

@@ -9,7 +9,7 @@ from kokoro import KPipeline  # type: ignore[import-untyped]
 
 from deck_generation.bin.config import AudioGenerationConfig
 
-_logger = logging.getLogger(name=__file__)
+_logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)
 
 # TODO: Try out https://github.com/Kugelaudio/kugelaudio-open

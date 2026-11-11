@@ -20,7 +20,7 @@ from deck_generation.data_generation.note_models import (
 
 logging.basicConfig()
 
-_logger = logging.getLogger(name=__file__)
+_logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)
 
 
