@@ -93,7 +93,9 @@ class SentenceFilterer:
         sentences_unique_words = sentences_group[SENTENCES_WORDS_COL_NAME].apply(
             lambda sentence: set(sentence).difference({group_word})
         )
-        group_unique_words = set(sentences_group[SENTENCES_WORDS_COL_NAME].sum())
+        group_unique_words: set[str] = set()
+        for words in sentences_group[SENTENCES_WORDS_COL_NAME]:
+            group_unique_words.update(words)
         word_to_idx = {word: i for i, word in enumerate(group_unique_words)}
         weights_matrix = np.zeros(
             shape=(group_size, len(group_unique_words)), dtype=np.float32
@@ -148,7 +150,7 @@ class SentenceFilterer:
             kept_indices = sentences_group.index
 
             if group_size > self.config.max_sentences_count_per_new_word:
-                kept_indices = self.prout(
+                kept_indices = self._get_filtered_similar_sentences_indices(
                     sentences_group=sentences_group, group_word=group_word
                 )
 
@@ -198,8 +200,8 @@ class SentenceFilterer:
             pandas.DataFrame(rarest_word_and_frequency.to_list())
         )
 
-        filtered_sentences_indexes = self._get_filtered_group_sentences_indices()
-        sentences_df = sentences_df.iloc[filtered_sentences_indexes].sort_values(
+        filtered_sentences_indexes = self._get_filtered_group_sentences_indices(sentences_df=sentences_df)
+        sentences_df = sentences_df.loc[filtered_sentences_indexes].sort_values(
             [RAREST_WORD_FREQ_COL_NAME, RAREST_WORD_COL_NAME], ascending=False
         )
 

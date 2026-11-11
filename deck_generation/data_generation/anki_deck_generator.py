@@ -76,6 +76,7 @@ class AnkiDeckGenerator:
         filterer = SentenceFilterer.from_tatoeba_file(
             sentences_filepath=tatoeba_sentences_file_path,
             word_frequency_file_path=word_frequency_file_path,
+            config=config.sentence_filtering_config
         )
 
         return AnkiDeckGenerator(
@@ -122,9 +123,7 @@ class AnkiDeckGenerator:
                 previous_config = DeckGeneratorConfig.from_json(json.load(fp=f))
 
         # TODO: Add condition to check whether the data needs to be regenerated or not
-        sentences_df = self.sentences_filterer.get_filtered_sentences_df(
-            config=self.config.sentence_filtering_config
-        )
+        sentences_df = self.sentences_filterer.get_filtered_sentences_df()
         sentences_df = sentences_df.reset_index(drop=True)
 
         self._generate_audio_files(
