@@ -1,29 +1,27 @@
 from __future__ import annotations
-from typing import Callable
 
+import logging
+from collections.abc import Callable
+from functools import cached_property
+from pathlib import Path
 
 import numpy as np
 import pandas
-
-
-from pathlib import Path
+import tqdm
 
 from deck_generation.bin.config import SentenceFilteringConfig
 from deck_generation.constants import (
+    RAREST_WORD_COL_NAME,
+    RAREST_WORD_FREQ_COL_NAME,
+    SENTENCES_WORDS_COL_NAME,
     TARGET_ID_COL_NAME,
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
-    SENTENCES_WORDS_COL_NAME,
-    RAREST_WORD_COL_NAME,
-    RAREST_WORD_FREQ_COL_NAME,
 )
-import regex
-import logging
+from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
 
-from deck_generation.utils import split_string_at_indices
-
-_logger = logging.getLogger(name=__file__)
+_logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)
 
 
@@ -32,16 +30,18 @@ class SentenceFilterer:
         self,
         sentences_loader: Callable[..., pandas.DataFrame],
         word_to_freq: dict[str, int],
+        config: SentenceFilteringConfig,
     ) -> None:
         self._sentences_loader = sentences_loader
-        self._original_sentences_df: pandas.DataFrame | None = None
         self.word_to_freq = word_to_freq
+        self.config = config
 
     @classmethod
     def from_tatoeba_file(
         cls,
         sentences_filepath: Path,
         word_frequency_file_path: Path,
+        config: SentenceFilteringConfig,
     ) -> SentenceFilterer:
         def _tatoeba_loader(
             _sentences_path: Path = sentences_filepath,
@@ -66,6 +66,9 @@ class SentenceFilterer:
         word_freq_df = pandas.read_csv(
             filepath_or_buffer=word_frequency_file_path, sep=" ", names=["Word", "freq"]
         )
+        word_freq_df["Word"] = word_freq_df["Word"].astype(str)
+        word_freq_df["freq"] = word_freq_df["freq"].astype(int)
+        word_freq_df = word_freq_df.dropna()
 
         word_to_freq: dict[str, int] = dict(
             zip(word_freq_df["Word"], word_freq_df["freq"])
@@ -74,85 +77,89 @@ class SentenceFilterer:
         return SentenceFilterer(
             sentences_loader=_tatoeba_loader,
             word_to_freq=word_to_freq,
+            config=config,
         )
 
-    @property
+    @cached_property
     def original_sentences_df(self) -> pandas.DataFrame:
-        if self._original_sentences_df is None:
-            self._original_sentences_df = self._sentences_loader()
+        return self._sentences_loader()
 
-        return self._original_sentences_df
+    def _get_filtered_similar_sentences_indices(
+        self, sentences_group: pandas.DataFrame, group_word: str
+    ) -> pandas.Index:
+        group_size = len(sentences_group)
+        kept_indices_mask = np.ones(shape=(group_size), dtype=bool)
 
-    def _get_rarest_word_frequency(
-        self, sentences_words: list[list[str]], only_proper_nouns_capitalized: bool
-    ):
-        # We assume that non-word starting words are capitalized properly
-        non_starting_words = [
-            sentence_word
-            for sentence_words in sentences_words
-            for sentence_word in sentence_words[1:]
-        ]
-        non_starting_word_frequencies: list[int | float] = [
-            self.word_to_freq.get(word, -1) for word in non_starting_words
-        ]
+        sentences_unique_words = sentences_group[SENTENCES_WORDS_COL_NAME].apply(
+            lambda sentence: set(sentence).difference({group_word})
+        )
+        group_unique_words = set(sentences_group[SENTENCES_WORDS_COL_NAME].sum())
+        word_to_idx = {word: i for i, word in enumerate(group_unique_words)}
+        weights_matrix = np.zeros(
+            shape=(group_size, len(group_unique_words)), dtype=np.float32
+        )
+        for sentence_idx, sentence_words in enumerate(sentences_unique_words):
+            for word in sentence_words:
+                word_idx = word_to_idx[word]
+                word_weight = 1.0 / np.sqrt(self.word_to_freq[word])
+                weights_matrix[sentence_idx, word_idx] = word_weight
 
-        if only_proper_nouns_capitalized:
-            non_starting_word_frequencies = [
-                np.inf if word[0].upper() == word[0] else freq
-                for word, freq in zip(non_starting_words, non_starting_word_frequencies)
-            ]
+        intersection_mat = weights_matrix @ weights_matrix.T
+        cardinality_mat = np.repeat(
+            (weights_matrix**2.0).sum(axis=1)[None, :], group_size, axis=0
+        )
+        union_mat = cardinality_mat + cardinality_mat.T - intersection_mat
+        sim_matrix = intersection_mat / union_mat
 
-        starting_words = [
-            (
-                sentence_words[0]
-                if sentence_words[0] in self.word_to_freq
-                else sentence_words[0].lower()
-            )
-            for sentence_words in sentences_words
-        ]
-        starting_word_frequencies = [
-            self.word_to_freq.get(word, np.inf) for word in starting_words
-        ]
+        np.fill_diagonal(
+            sim_matrix, 0
+        )  # TODO: Add config field so that some similarity is acceptable
+        while kept_indices_mask.sum() > self.config.max_sentences_count_per_new_word:
+            if sim_matrix.max() == 0.0:
+                kept_indices_mask[
+                    np.where(kept_indices_mask)[0][
+                        self.config.max_sentences_count_per_new_word :
+                    ]
+                ] = False  # TODO: Maybe sort by eg sentence length before removing other sentences
+                break
 
-        word_frequencies = starting_word_frequencies + non_starting_word_frequencies
-        words = starting_words + non_starting_words
-        rarest_word_idx = np.argmin(word_frequencies)
+            index_to_remove = np.unravel_index(sim_matrix.argmax(), sim_matrix.shape)[0]
+            sim_matrix[index_to_remove, :] = 0
+            sim_matrix[:, index_to_remove] = 0
+            kept_indices_mask[index_to_remove] = False
 
-        return words[rarest_word_idx], word_frequencies[rarest_word_idx]
+        kept_indices = sentences_group.index[kept_indices_mask]
 
-    def _get_split_sentences_and_words(
+        return kept_indices
+
+    def _get_filtered_group_sentences_indices(
         self, sentences_df: pandas.DataFrame
-    ) -> pandas.Series:
-        # Splits entries into sentences, and split these sentences into words
-        sentence_first_letter_pattern = r"(?<=[^\p{L}|\s|\,|\;|\'|\d|\-]|^)\s*(\p{Lu})"
-        split_sentences = sentences_df[TARGET_SENTENCE_COL_NAME].apply(
-            lambda sentence: split_string_at_indices(
-                string_to_split=sentence,
-                split_indices=[
-                    match.span()[0]
-                    for match in regex.finditer(
-                        pattern=sentence_first_letter_pattern, string=sentence
-                    )
-                ],
-            )
-        )
-        sentences_words = split_sentences.apply(
-            lambda sentences_list: [
-                regex.findall(r"(\p{L}+\'?)", sentence) for sentence in sentences_list
-            ]
-        )
+    ) -> pandas.Index:
+        # TODO: Test with too many dissimilar sentences (5 very different sentences, 2 must be kept)
+        # TODO: Basic usage test (3 sentences to keep, 2 very different and 2 quite close)
+        # TODO: Test that it behaves correctly with edge casey sentences count
+        sentences_groups_by_rarest_word = sentences_df.groupby(RAREST_WORD_COL_NAME)
+        filtered_sentences_indexes = pandas.Index([])
+        for group_word, sentences_group in tqdm.tqdm(
+            sentences_groups_by_rarest_word,
+            desc="   Removing similar sentences in groups...",
+        ):
+            group_size = len(sentences_group)
+            kept_indices = sentences_group.index
 
-        return sentences_words
+            if group_size > self.config.max_sentences_count_per_new_word:
+                kept_indices = self.prout(
+                    sentences_group=sentences_group, group_word=group_word
+                )
+
+            filtered_sentences_indexes = filtered_sentences_indexes.append(kept_indices)
+
+        return filtered_sentences_indexes
 
     def get_filtered_sentences_df(
         self,
-        config: SentenceFilteringConfig,
     ) -> pandas.DataFrame:
-        # TODO: Eventually a metric to check how similar two sentences are would be useful
-        # This similarity would not be semantic, as learning two ways to say the same thing is useful, but instead
-        # a sort of Levenshtein distance to measure the number of required letter changes between two sentences
         _logger.info("Running sentence filtering.")
-
         _logger.info("   Removing duplicate entries...")
         sentences_df = self.original_sentences_df.drop_duplicates(
             subset=TARGET_SENTENCE_COL_NAME
@@ -163,40 +170,37 @@ class SentenceFilterer:
                 subset=TRANSLATED_SENTENCE_COL_NAME
             )
 
-        _logger.info("   Splitting entries into separate sentences...")
-        sentences_df[SENTENCES_WORDS_COL_NAME] = self._get_split_sentences_and_words(
-            sentences_df=sentences_df
+        _logger.info("   Tokenizing entries...")
+        tokenizer = ViterbiTokenizer.from_token_frequencies(
+            token_frequencies=self.word_to_freq
         )
+        sentences_df[SENTENCES_WORDS_COL_NAME] = sentences_df[
+            TARGET_SENTENCE_COL_NAME
+        ].apply(lambda sentence: tokenizer.tokenize_sentence(sentence))
 
         _logger.info("   Removing entries out of word count range...")
-        sentences_lengths = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
-            lambda sentences_list: sum(
-                [len(sentences_words) for sentences_words in sentences_list]
-            )
-        )
-        sentences_length_mask = (sentences_lengths >= config.min_word_count) & (
-            sentences_lengths <= config.max_word_count
+        sentences_lengths = sentences_df[SENTENCES_WORDS_COL_NAME].apply(len)
+        sentences_length_mask = (sentences_lengths >= self.config.min_word_count) & (
+            sentences_lengths <= self.config.max_word_count
         )
         sentences_df = sentences_df[sentences_length_mask]
-        sentences_df = sentences_df.reset_index(drop=True)
 
-        _logger.info("   Registering least frequent word per sentence...")
+        _logger.info("   Ranking sentences by similarity...")
         rarest_word_and_frequency = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
-            lambda sentence: self._get_rarest_word_frequency(
-                sentences_words=sentence,
-                only_proper_nouns_capitalized=config.only_proper_nouns_capitalized,
-            )
+            lambda words_list: sorted(
+                {word: self.word_to_freq[word] for word in words_list}.items(),
+                key=lambda x: x[1],
+            )[:2][
+                -1
+            ]  # TODO: Make 2 (meaning the 2nd rarest word) configurable
         )
         sentences_df[[RAREST_WORD_COL_NAME, RAREST_WORD_FREQ_COL_NAME]] = (
             pandas.DataFrame(rarest_word_and_frequency.to_list())
         )
 
-        sentences_df = (
-            sentences_df.groupby(RAREST_WORD_COL_NAME)
-            .head(config.max_sentences_count_per_new_word)
-            .sort_values(
-                [RAREST_WORD_FREQ_COL_NAME, RAREST_WORD_COL_NAME], ascending=False
-            )
+        filtered_sentences_indexes = self._get_filtered_group_sentences_indices()
+        sentences_df = sentences_df.iloc[filtered_sentences_indexes].sort_values(
+            [RAREST_WORD_FREQ_COL_NAME, RAREST_WORD_COL_NAME], ascending=False
         )
 
         _logger.info(

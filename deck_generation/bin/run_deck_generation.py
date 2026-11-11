@@ -1,7 +1,8 @@
 from __future__ import annotations
+
+import logging
 from pathlib import Path
 
-from deck_generation.data_generation.anki_deck_generator import AnkiDeckGenerator
 from deck_generation.bin.config import (
     AudioGenerationConfig,
     DeckGeneratorConfig,
@@ -10,27 +11,29 @@ from deck_generation.bin.config import (
 from deck_generation.constants import (
     GENERATED_DECK_DATA_DIR,
 )
+from deck_generation.data_generation.anki_deck_generator import AnkiDeckGenerator
 from deck_generation.data_generation.note_models import (
     ListeningNoteModel,
     ReadingNoteModel,
     TranslatingNoteModel,
 )
-import logging
 
 logging.basicConfig()
 
-_logger = logging.getLogger(name=__file__)
+_logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)
 
 
 def main() -> None:
-    sentences_filepath = Path("data/Sentence pairs in Italian-French - 2026-02-07.tsv")
+    sentences_filepath = Path(
+        "data/it_fr/Sentence pairs in Italian-French - 2026-02-07.tsv"
+    )
 
     deck_generator = AnkiDeckGenerator.from_tatoeba_file(
         deck_name="Deck français-italien",
         deck_output_folder=GENERATED_DECK_DATA_DIR / sentences_filepath.stem,
         tatoeba_sentences_file_path=sentences_filepath,
-        word_frequency_file_path=Path("data/word_freq_it.csv"),
+        word_frequency_file_path=Path("data/it_fr/word_freq_it.csv"),
         target_language_code="it",
         translated_language_code="fr",
         config=DeckGeneratorConfig(
