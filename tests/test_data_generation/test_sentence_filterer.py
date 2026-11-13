@@ -6,10 +6,6 @@ import pytest
 from deck_generation.bin.config import SentenceFilteringConfig
 from deck_generation.data_generation.sentence_filterer import SentenceFilterer
 
-# TODO: Test with too many dissimilar sentences (5 very different sentences, 2 must be kept)
-# TODO: Basic usage test (3 sentences to keep, 2 very different and 2 quite close)
-# TODO: Test that even with only very similar sentences it returns the expected number of sentences
-
 
 @pytest.mark.parametrize(
     "input_sentence_words, expected_kept_sentences_indexes, group_word, max_sentences_count_per_new_word, max_sentence_similarity_per_new_word",
@@ -26,7 +22,50 @@ from deck_generation.data_generation.sentence_filterer import SentenceFilterer
             3,
             0.0,
             id="it_keeps_one_of_the_two_similar_sentences",
-        )
+        ),
+        pytest.param(
+            [
+                ["I", "want", "to", "eat", "something"],
+                ["I", "want", "to", "eat", "something"],
+                ["I", "want", "to", "eat", "something"],
+                ["I", "want", "to", "eat", "something"],
+                ["I", "want", "to", "eat", "something"],
+            ],
+            [2, 3, 4],
+            "something",
+            3,
+            0.0,
+            id="it_keeps_the_correct_number_of_sentences_despite_high_similarity",
+        ),
+        pytest.param(
+            [
+                ["something", "is", "terribly", "wrong", "here"],
+                ["aren't", "you", "something"],
+                ["has", "something", "good", "happened"],
+                ["there's", "something", "in", "there"],
+                ["I", "want", "to", "eat", "something"],
+            ],
+            [0, 4],
+            "something",
+            2,
+            0.25,
+            id="it_keeps_the_correct_number_of_sentences_despite_low_similarity",
+        ),
+        pytest.param(
+            [
+                ["something", "is", "terribly", "wrong", "here"],
+                ["aren't", "you", "something"],
+                ["has", "something", "good", "happened"],
+                ["there's", "something", "in", "there"],
+                ["I", "want", "to", "eat", "something"],
+                ["I", "want", "something", "to", "eat"],
+            ],
+            [0, 5],
+            "something",
+            2,
+            0.25,
+            id="it_keeps_the_correct_number_of_sentences_despite_too_many_dissimilar_sentences",
+        ),
     ],
 )
 def test_it_produces_the_expected_sentences_when_filtering_groups(
@@ -53,4 +92,8 @@ def test_it_produces_the_expected_sentences_when_filtering_groups(
     )
 
     assert len(filtered_sentences_indices) == max_sentences_count_per_new_word
+    unknown_indices = set(filtered_sentences_indices).difference(
+        set(sentences_group_words.index)
+    )
+    assert len(unknown_indices) == 0
     assert set(filtered_sentences_indices) == set(expected_kept_sentences_indexes)
