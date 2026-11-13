@@ -123,15 +123,18 @@ class SentenceFilterer:
             if kept_indices_mask.sum() == self.config.max_sentences_count_per_new_word:
                 break
 
-        kept_indices_mask[
-            np.where(kept_indices_mask)[0][
-                self.config.max_sentences_count_per_new_word :
+        remaining_indices = sentences_group_words.index[kept_indices_mask]
+        if len(remaining_indices) > self.config.max_sentences_count_per_new_word:
+            remaining_sentences_by_length = (
+                sentences_group_words[remaining_indices]
+                .apply(len)
+                .sort_values(ascending=False)
+            )
+            remaining_indices = remaining_sentences_by_length.index[
+                : self.config.max_sentences_count_per_new_word
             ]
-        ] = False  # TODO: Maybe sort by eg sentence length before removing other sentences
 
-        kept_indices = sentences_group_words.index[kept_indices_mask]
-
-        return kept_indices
+        return remaining_indices
 
     def _get_filtered_group_sentences_indices(
         self, sentences_df: pandas.DataFrame
