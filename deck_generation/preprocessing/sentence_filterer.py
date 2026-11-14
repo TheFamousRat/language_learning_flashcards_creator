@@ -9,7 +9,6 @@ import numpy as np
 import pandas
 import tqdm
 
-from deck_generation.bin.config import SentenceFilteringConfig
 from deck_generation.constants import (
     RAREST_WORD_COL_NAME,
     RAREST_WORD_FREQ_COL_NAME,
@@ -19,7 +18,8 @@ from deck_generation.constants import (
     TRANSLATED_ID_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
-from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
+from deck_generation.deck_generation.config import SentenceFilteringConfig
+from deck_generation.preprocessing.viterbi_tokenizer import ViterbiTokenizer
 
 _logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)

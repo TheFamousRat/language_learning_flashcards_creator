@@ -13,7 +13,6 @@ import numpy as np
 import pandas
 import plotly.express as px  # type: ignore[import-untyped]
 
-from deck_generation.bin.config import DeckGeneratorConfig
 from deck_generation.constants import (
     AUDIO_FILE_COL_NAME,
     RAREST_WORD_COL_NAME,
@@ -23,11 +22,12 @@ from deck_generation.constants import (
     TARGET_SENTENCE_COL_NAME,
     TRANSLATED_SENTENCE_COL_NAME,
 )
-from deck_generation.data_generation.kokoro_sentence_audio_generator import (
+from deck_generation.data_inference.kokoro_sentence_audio_generator import (
     KokoroSentenceAudioGenerator,
 )
-from deck_generation.data_generation.note_models import NoteModel
-from deck_generation.data_generation.sentence_filterer import SentenceFilterer
+from deck_generation.deck_generation.config import DeckGeneratorConfig
+from deck_generation.deck_generation.note_models import NoteModel
+from deck_generation.preprocessing.sentence_filterer import SentenceFilterer
 
 logging.basicConfig()
 

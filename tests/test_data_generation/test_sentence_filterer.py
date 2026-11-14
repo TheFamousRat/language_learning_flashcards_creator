@@ -3,8 +3,8 @@ from collections import defaultdict
 import pandas
 import pytest
 
-from deck_generation.bin.config import SentenceFilteringConfig
-from deck_generation.data_generation.sentence_filterer import SentenceFilterer
+from deck_generation.deck_generation.config import SentenceFilteringConfig
+from deck_generation.preprocessing.sentence_filterer import SentenceFilterer
 
 
 @pytest.mark.parametrize(

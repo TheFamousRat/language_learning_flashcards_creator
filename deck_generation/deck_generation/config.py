@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from deck_generation.data_generation.note_models import (
+from deck_generation.deck_generation.note_models import (
     ListeningNoteModel,
     ReadingNoteModel,
     TranslatingNoteModel,

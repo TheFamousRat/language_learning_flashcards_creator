@@ -1,6 +1,6 @@
 import pytest
 
-from deck_generation.data_generation.viterbi_tokenizer import ViterbiTokenizer
+from deck_generation.preprocessing.viterbi_tokenizer import ViterbiTokenizer
 from tests.dummy_word_frequencies import (
     CHINESE_WORD_FREQUENCIES,
     ENGLISH_WORD_FREQUENCIES,

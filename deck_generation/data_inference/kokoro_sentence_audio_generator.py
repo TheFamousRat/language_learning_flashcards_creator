@@ -7,7 +7,7 @@ import torch
 import tqdm
 from kokoro import KPipeline  # type: ignore[import-untyped]
 
-from deck_generation.bin.config import AudioGenerationConfig
+from deck_generation.deck_generation.config import AudioGenerationConfig
 
 _logger = logging.getLogger(name=__name__)
 _logger.setLevel(level=logging.DEBUG)
