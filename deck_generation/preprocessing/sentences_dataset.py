@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from pathlib import Path
 from typing import Literal
 
 import pandas
+
+ColumnGenerator = Callable[["SentencesDataset"], pandas.Series]
 
 
 class SentencesDataset:
     ORIGINAL_SENTENCES_COLUMN = "original_sentences"
     TRANSLATED_SENTENCES_COLUMN = "translated_sentences"
     SENTENCES_AUDIO_COLUMN = "original_sentences_audio"
+    _DATASET_INDEX_COLUMN = "dataset_index"
+    _ORIGINAL_FILE_ROWS_COLUMN = "original_file_row"
 
     def __init__(
         self,
@@ -18,12 +22,10 @@ class SentencesDataset:
         sentences_df: pandas.DataFrame,
         separator: str,
         has_header: bool,
-        original_sentences_column: str,
-        translated_sentences_column: str | None = None,
-        audio_files_column: str | None = None,
-        audio_files_generator: (
-            Callable[[pandas.DataFrame], pandas.Series] | None
-        ) = None,
+        original_sentences_column: Hashable,
+        translated_sentences_column: Hashable | None = None,
+        audio_files_column: Hashable | None = None,
+        audio_files_generator: ColumnGenerator | None = None,
     ) -> None:
         self.source_sentences_file_path = source_sentences_file_path
         self.sentences_df = sentences_df
@@ -40,40 +42,44 @@ class SentencesDataset:
 
     @property
     def translated_sentences(self) -> pandas.Series[str] | None:
-        if self.TRANSLATED_SENTENCES_COLUMN in self.sentences_df.columns:
-            return self.sentences_df[self.TRANSLATED_SENTENCES_COLUMN]
-
-        if self.translated_sentences_column is not None:
-            self.sentences_df[self.TRANSLATED_SENTENCES_COLUMN] = (
-                self._load_new_dataframe_columns(
-                    columns_to_load=[self.translated_sentences_column]
-                )
-            )
-
-        return self.sentences_df.get(
-            key=[self.TRANSLATED_SENTENCES_COLUMN], default=None
+        return self._lazy_load_column_if_it_does_not_exist(
+            column_name=self.TRANSLATED_SENTENCES_COLUMN,
+            column_in_file=self.translated_sentences_column,
         )
 
     @property
     def sentences_audio(self) -> pandas.Series[str] | None:
-        if self.SENTENCES_AUDIO_COLUMN in self.sentences_df.columns:
-            return self.sentences_df[self.SENTENCES_AUDIO_COLUMN]
+        return self._lazy_load_column_if_it_does_not_exist(
+            column_name=self.SENTENCES_AUDIO_COLUMN,
+            column_in_file=self.audio_files_column,
+            column_generator=self.audio_files_generator,
+        )
 
-        if self.audio_files_generator is not None:
-            self.sentences_df[self.SENTENCES_AUDIO_COLUMN] = self.audio_files_generator(
-                self.sentences_df
-            )
-        elif self.audio_files_column is not None:
-            self.sentences_df[self.SENTENCES_AUDIO_COLUMN] = (
-                self._load_new_dataframe_columns(
-                    columns_to_load=[self.audio_files_column]
+    def _lazy_load_column_if_it_does_not_exist(
+        self,
+        column_name: Hashable,
+        column_in_file: Hashable | None = None,
+        column_generator: ColumnGenerator | None = None,
+    ) -> pandas.Series | None:
+        if column_name not in self.sentences_df:
+            if column_in_file is not None:
+                loaded_column = self.load_new_dataframe_columns(
+                    columns_to_load=[column_in_file]
                 )
-            )
+                self.sentences_df[column_name] = loaded_column
+            elif column_generator is not None:
+                generated_column = column_generator(self)
+                self.sentences_df[column_name] = generated_column
 
-        return self.sentences_df.get(key=[self.SENTENCES_AUDIO_COLUMN], default=None)
+        column_content = (
+            None
+            if column_name not in self.sentences_df.columns
+            else self.sentences_df[column_name]
+        )
+        return column_content
 
-    def _load_new_dataframe_columns(
-        self, columns_to_load: list[str]
+    def load_new_dataframe_columns(
+        self, columns_to_load: list[Hashable]
     ) -> pandas.DataFrame:
         return self._load_columns_from_dataframe_file(
             dataframe_file=self.source_sentences_file_path,
@@ -89,7 +95,7 @@ class SentencesDataset:
         dataframe_file: Path,
         separator: str,
         has_header: bool,
-        columns_to_load: list[str],
+        columns_to_load: list[Hashable],
         index: pandas.Index | None = None,
     ) -> pandas.DataFrame:
         header: Literal["infer"] | None = "infer" if has_header else None
@@ -123,12 +129,10 @@ class SentencesDataset:
         sentences_file_path: Path,
         separator: str,
         has_header: bool,
-        original_sentences_column: str,
-        translated_sentences_column: str | None = None,
-        audio_files_column: str | None = None,
-        audio_files_generator: (
-            Callable[[pandas.DataFrame], pandas.Series] | None
-        ) = None,
+        original_sentences_column: Hashable,
+        translated_sentences_column: Hashable | None = None,
+        audio_files_column: Hashable | None = None,
+        audio_files_generator: ColumnGenerator | None = None,
     ) -> SentencesDataset:
         sentences_df = cls._load_columns_from_dataframe_file(
             dataframe_file=sentences_file_path,
@@ -139,6 +143,7 @@ class SentencesDataset:
         sentences_df[cls.ORIGINAL_SENTENCES_COLUMN] = sentences_df[
             original_sentences_column
         ]
+        sentences_df[cls._DATASET_INDEX_COLUMN] = 1
 
         return SentencesDataset(
             source_sentences_file_path=sentences_file_path,
@@ -151,50 +156,5 @@ class SentencesDataset:
             audio_files_generator=audio_files_generator,
         )
 
-    def append_dataset(self, other: SentencesDataset) -> SentencesDataset:
+    def append_dataset(self, other: SentencesDataset) -> None:
         pass
-
-
-def main() -> None:
-    sentences_file = Path(
-        "/home/thefamousrat/Documents/Projets/language_learning_flashcards_creator/data/it_fr/cv-corpus-27.0-2026-09-11/it/validated.tsv"
-    )
-
-    def get_audio_files_fullpath(
-        sentences_df: pandas.DataFrame, sentences_file_path: Path
-    ) -> pandas.Series:
-        audio_files = pandas.read_csv(
-            filepath_or_buffer=sentences_file_path, sep="	", usecols=["path"]
-        )["path"]
-        audio_files = audio_files.iloc[sentences_df.index]
-        audio_files_abs = audio_files.apply(
-            lambda file_name: sentences_file_path.parent / "clips" / file_name
-        )
-
-        return audio_files_abs
-
-    dataset_mozilla = SentencesDataset.from_sentences_file(
-        sentences_file_path=sentences_file,
-        separator="	",
-        original_sentences_column="sentence",
-        audio_files_generator=lambda sentences_df: get_audio_files_fullpath(
-            sentences_df=sentences_df, sentences_file_path=sentences_file
-        ),
-    )
-
-    dataset_tatoeba = SentencesDataset.from_sentences_file(
-        sentences_file_path=Path(
-            "/home/thefamousrat/Documents/Projets/language_learning_flashcards_creator/data/it_fr/Sentence pairs in Italian-French - 2026-02-07.tsv"
-        ),
-        separator="	",
-        original_sentences_column=1,
-        translated_sentences_column=3,
-    )
-
-    dataset_tatoeba.append_dataset(other=dataset_tatoeba)
-    dataset_tatoeba.translated_sentences
-
-
-
-if __name__ == "__main__":
-    main()
