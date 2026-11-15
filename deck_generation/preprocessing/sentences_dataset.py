@@ -1,6 +1,9 @@
 from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
+from typing import Literal
+
 import pandas
 
 
@@ -14,6 +17,7 @@ class SentencesDataset:
         source_sentences_file_path: Path,
         sentences_df: pandas.DataFrame,
         separator: str,
+        has_header: bool,
         original_sentences_column: str,
         translated_sentences_column: str | None = None,
         audio_files_column: str | None = None,
@@ -24,6 +28,7 @@ class SentencesDataset:
         self.source_sentences_file_path = source_sentences_file_path
         self.sentences_df = sentences_df
         self.separator = separator
+        self.has_header = has_header
         self.original_sentences_column = original_sentences_column
         self.translated_sentences_column = translated_sentences_column
         self.audio_files_column = audio_files_column
@@ -40,7 +45,7 @@ class SentencesDataset:
 
         if self.translated_sentences_column is not None:
             self.sentences_df[self.TRANSLATED_SENTENCES_COLUMN] = (
-                self._load_new_dataframe_column(
+                self._load_new_dataframe_columns(
                     columns_to_load=[self.translated_sentences_column]
                 )
             )
@@ -60,7 +65,7 @@ class SentencesDataset:
             )
         elif self.audio_files_column is not None:
             self.sentences_df[self.SENTENCES_AUDIO_COLUMN] = (
-                self._load_new_dataframe_column(
+                self._load_new_dataframe_columns(
                     columns_to_load=[self.audio_files_column]
                 )
             )
@@ -73,6 +78,7 @@ class SentencesDataset:
         return self._load_columns_from_dataframe_file(
             dataframe_file=self.source_sentences_file_path,
             separator=self.separator,
+            has_header=self.has_header,
             columns_to_load=columns_to_load,
             index=self.sentences_df.index,
         )
@@ -82,14 +88,17 @@ class SentencesDataset:
         cls,
         dataframe_file: Path,
         separator: str,
+        has_header: bool,
         columns_to_load: list[str],
         index: pandas.Index | None = None,
     ) -> pandas.DataFrame:
+        header: Literal["infer"] | None = "infer" if has_header else None
         if index is None:
             return pandas.read_csv(
                 filepath_or_buffer=dataframe_file,
                 usecols=columns_to_load,
                 sep=separator,
+                header=header,
             )
 
         parts: list[pandas.DataFrame] = []
@@ -97,7 +106,8 @@ class SentencesDataset:
             filepath_or_buffer=dataframe_file,
             usecols=columns_to_load,
             sep=separator,
-            chunksize=200000,
+            header=header,
+            chunksize=200_000,
         ):
             filtered_chunk = chunk.loc[chunk.index.isin(index)]
             parts.append(filtered_chunk)
@@ -112,6 +122,7 @@ class SentencesDataset:
         cls,
         sentences_file_path: Path,
         separator: str,
+        has_header: bool,
         original_sentences_column: str,
         translated_sentences_column: str | None = None,
         audio_files_column: str | None = None,
@@ -122,18 +133,26 @@ class SentencesDataset:
         sentences_df = cls._load_columns_from_dataframe_file(
             dataframe_file=sentences_file_path,
             separator=separator,
+            has_header=has_header,
             columns_to_load=[original_sentences_column],
         )
+        sentences_df[cls.ORIGINAL_SENTENCES_COLUMN] = sentences_df[
+            original_sentences_column
+        ]
 
         return SentencesDataset(
             source_sentences_file_path=sentences_file_path,
             separator=separator,
+            has_header=has_header,
             sentences_df=sentences_df,
             original_sentences_column=original_sentences_column,
             translated_sentences_column=translated_sentences_column,
             audio_files_column=audio_files_column,
             audio_files_generator=audio_files_generator,
         )
+
+    def append_dataset(self, other: SentencesDataset) -> SentencesDataset:
+        pass
 
 
 def main() -> None:
@@ -154,7 +173,7 @@ def main() -> None:
 
         return audio_files_abs
 
-    dataset = SentencesDataset.from_sentences_file(
+    dataset_mozilla = SentencesDataset.from_sentences_file(
         sentences_file_path=sentences_file,
         separator="	",
         original_sentences_column="sentence",
@@ -163,7 +182,18 @@ def main() -> None:
         ),
     )
 
-    return
+    dataset_tatoeba = SentencesDataset.from_sentences_file(
+        sentences_file_path=Path(
+            "/home/thefamousrat/Documents/Projets/language_learning_flashcards_creator/data/it_fr/Sentence pairs in Italian-French - 2026-02-07.tsv"
+        ),
+        separator="	",
+        original_sentences_column=1,
+        translated_sentences_column=3,
+    )
+
+    dataset_tatoeba.append_dataset(other=dataset_tatoeba)
+    dataset_tatoeba.translated_sentences
+
 
 
 if __name__ == "__main__":
