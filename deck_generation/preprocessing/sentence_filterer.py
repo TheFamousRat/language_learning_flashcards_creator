@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from functools import cached_property
 from pathlib import Path
 
 import numpy as np
@@ -13,12 +11,9 @@ from deck_generation.constants import (
     RAREST_WORD_COL_NAME,
     RAREST_WORD_FREQ_COL_NAME,
     SENTENCES_WORDS_COL_NAME,
-    TARGET_ID_COL_NAME,
-    TARGET_SENTENCE_COL_NAME,
-    TRANSLATED_ID_COL_NAME,
-    TRANSLATED_SENTENCE_COL_NAME,
 )
 from deck_generation.deck_generation.config import SentenceFilteringConfig
+from deck_generation.preprocessing.sentences_dataset import SentencesDataset
 from deck_generation.preprocessing.viterbi_tokenizer import ViterbiTokenizer
 
 _logger = logging.getLogger(name=__name__)
@@ -28,41 +23,21 @@ _logger.setLevel(level=logging.DEBUG)
 class SentenceFilterer:
     def __init__(
         self,
-        sentences_loader: Callable[..., pandas.DataFrame],
+        sentences_dataset: SentencesDataset,
         word_to_freq: dict[str, int],
         config: SentenceFilteringConfig,
     ) -> None:
-        self._sentences_loader = sentences_loader
+        self.sentences_dataset = sentences_dataset
         self.word_to_freq = word_to_freq
         self.config = config
 
     @classmethod
     def from_tatoeba_file(
         cls,
-        sentences_filepath: Path,
+        sentences_dataset: SentencesDataset,
         word_frequency_file_path: Path,
         config: SentenceFilteringConfig,
     ) -> SentenceFilterer:
-        def _tatoeba_loader(
-            _sentences_path: Path = sentences_filepath,
-        ) -> pandas.DataFrame:
-            _logger.info(
-                f"Loading sentences from Tatoeba export file at {sentences_filepath}..."
-            )
-            loaded_sentences = pandas.read_csv(
-                filepath_or_buffer=_sentences_path,
-                sep="	",
-                names=[
-                    TARGET_ID_COL_NAME,
-                    TARGET_SENTENCE_COL_NAME,
-                    TRANSLATED_ID_COL_NAME,
-                    TRANSLATED_SENTENCE_COL_NAME,
-                ],
-            )
-            _logger.info(f"Loaded {len(loaded_sentences)} sentences.")
-
-            return loaded_sentences
-
         word_freq_df = pandas.read_csv(
             filepath_or_buffer=word_frequency_file_path, sep=" ", names=["Word", "freq"]
         )
@@ -75,14 +50,10 @@ class SentenceFilterer:
         )
 
         return SentenceFilterer(
-            sentences_loader=_tatoeba_loader,
+            sentences_dataset=sentences_dataset,
             word_to_freq=word_to_freq,
             config=config,
         )
-
-    @cached_property
-    def original_sentences_df(self) -> pandas.DataFrame:
-        return self._sentences_loader()
 
     def _get_filtered_similar_sentences_indices(
         self, sentences_group_words: pandas.Series, group_word: str
@@ -163,13 +134,13 @@ class SentenceFilterer:
     ) -> pandas.DataFrame:
         _logger.info("Running sentence filtering.")
         _logger.info("   Removing duplicate entries...")
-        sentences_df = self.original_sentences_df.drop_duplicates(
-            subset=TARGET_SENTENCE_COL_NAME
+        sentences_df = self.sentences_dataset.sentences_df.drop_duplicates(
+            subset=SentencesDataset.ORIGINAL_SENTENCES_COLUMN
         )
 
-        if TRANSLATED_SENTENCE_COL_NAME in sentences_df.columns:
+        if self.sentences_dataset.translated_sentences is not None:
             sentences_df = sentences_df.drop_duplicates(
-                subset=TRANSLATED_SENTENCE_COL_NAME
+                subset=SentencesDataset.TRANSLATED_SENTENCES_COLUMN
             )
 
         _logger.info("   Tokenizing entries...")
@@ -177,7 +148,7 @@ class SentenceFilterer:
             token_frequencies=self.word_to_freq
         )
         sentences_df[SENTENCES_WORDS_COL_NAME] = sentences_df[
-            TARGET_SENTENCE_COL_NAME
+            SentencesDataset.TRANSLATED_SENTENCES_COLUMN
         ].apply(lambda sentence: tokenizer.tokenize_sentence(sentence))
 
         _logger.info("   Removing entries out of word count range...")
@@ -208,6 +179,6 @@ class SentenceFilterer:
         )
 
         _logger.info(
-            f"Done, {len(sentences_df)} out of {len(self.original_sentences_df)} entries kept."
+            f"Done, {len(sentences_df)} out of {len(self.sentences_dataset.sentences_df)} entries kept."
         )
         return sentences_df

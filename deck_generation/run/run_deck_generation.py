@@ -17,6 +17,10 @@ from deck_generation.deck_generation.note_models import (
     ReadingNoteModel,
     TranslatingNoteModel,
 )
+from deck_generation.preprocessing.sentences_dataset import (
+    DatasetLoadingConfig,
+    SentencesDataset,
+)
 
 logging.basicConfig()
 
@@ -25,14 +29,22 @@ _logger.setLevel(level=logging.DEBUG)
 
 
 def main() -> None:
-    sentences_filepath = Path(
-        "data/it_fr/Sentence pairs in Italian-French - 2026-02-07.tsv"
+    tatoeba_dataset = SentencesDataset.from_loading_config(
+        loading_config=DatasetLoadingConfig(
+            source_sentences_file_path=Path(
+                "data/it_fr/Sentence pairs in Italian-French - 2026-02-07.tsv"
+            ),
+            separator="	",
+            has_header=False,
+            original_sentences_column=1,
+            translated_sentences_column=3,
+        )
     )
 
     deck_generator = AnkiDeckGenerator.from_tatoeba_file(
         deck_name="Deck français-italien",
-        deck_output_folder=GENERATED_DECK_DATA_DIR / sentences_filepath.stem,
-        tatoeba_sentences_file_path=sentences_filepath,
+        deck_output_folder=GENERATED_DECK_DATA_DIR,
+        sentences_dataset=tatoeba_dataset,
         word_frequency_file_path=Path("data/it_fr/word_freq_it.csv"),
         target_language_code="it",
         translated_language_code="fr",

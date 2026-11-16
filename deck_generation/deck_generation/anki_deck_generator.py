@@ -28,6 +28,7 @@ from deck_generation.data_inference.kokoro_sentence_audio_generator import (
 from deck_generation.deck_generation.config import DeckGeneratorConfig
 from deck_generation.deck_generation.note_models import NoteModel
 from deck_generation.preprocessing.sentence_filterer import SentenceFilterer
+from deck_generation.preprocessing.sentences_dataset import SentencesDataset
 
 logging.basicConfig()
 
@@ -67,16 +68,15 @@ class AnkiDeckGenerator:
         cls,
         deck_name: str,
         deck_output_folder: Path,
-        tatoeba_sentences_file_path: Path,
+        sentences_dataset: SentencesDataset,
         word_frequency_file_path: Path,
         config: DeckGeneratorConfig,
         translated_language_code: str,
         target_language_code: str,
     ) -> AnkiDeckGenerator:
-        # TODO: Le générateur devrait prendre une liste de "Dataset" en entrée, rien ne devrait encoder Tatoeba hors du pur chargement des données.
         # TODO: Ajouter logique pour traduire les phrases automatiquement si elles n'en ont pas déjà
         filterer = SentenceFilterer.from_tatoeba_file(
-            sentences_filepath=tatoeba_sentences_file_path,
+            sentences_dataset=sentences_dataset,
             word_frequency_file_path=word_frequency_file_path,
             config=config.sentence_filtering_config,
         )

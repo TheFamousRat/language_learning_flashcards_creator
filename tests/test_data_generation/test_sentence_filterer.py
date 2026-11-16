@@ -5,6 +5,7 @@ import pytest
 
 from deck_generation.deck_generation.config import SentenceFilteringConfig
 from deck_generation.preprocessing.sentence_filterer import SentenceFilterer
+from deck_generation.preprocessing.sentences_dataset import SentencesDataset
 
 
 @pytest.mark.parametrize(
@@ -80,9 +81,11 @@ def test_it_produces_the_expected_sentences_when_filtering_groups(
         max_sentence_similarity_per_new_word=max_sentence_similarity_per_new_word,
     )
 
-    dummy_loader = lambda: pandas.DataFrame()
+    dummy_dataset = SentencesDataset(
+        sentences_df=pandas.DataFrame([]), loading_config_by_dataset_index={}
+    )
     filterer = SentenceFilterer(
-        sentences_loader=dummy_loader,
+        sentences_dataset=dummy_dataset,
         word_to_freq=defaultdict(lambda: 1),
         config=config,
     )
