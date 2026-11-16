@@ -12,6 +12,21 @@ from deck_generation.preprocessing.sentences_dataset import (
 
 
 @pytest.fixture()
+def sentences_with_only_original() -> SentencesDataset:
+    file_path = Path(__file__).parent / "sentences_with_only_original.csv"
+    dataset = SentencesDataset.from_loading_config(
+        loading_config=DatasetLoadingConfig(
+            source_sentences_file_path=file_path,
+            separator=";",
+            has_header=True,
+            original_sentences_column="original_sentences",
+        )
+    )
+
+    return dataset
+
+
+@pytest.fixture()
 def sentences_dataset_with_translation() -> SentencesDataset:
     file_path = Path(__file__).parent / "sentences_with_translation.csv"
     dataset = SentencesDataset.from_loading_config(
@@ -126,8 +141,6 @@ def test_it_correctly_concatenates_dataset_data(
         sentences_dataset_with_translation.sentences_df,
         sentences_dataset_with_relative_audio.sentences_df,
     ]
-    if len(dataset_1) == len(sentences_dataset_with_relative_audio.sentences_df):
-        original_datasets = original_datasets[::-1]
 
     for recovered_dataset, original_dataset in zip(
         recovered_datasets, original_datasets
@@ -144,9 +157,41 @@ def test_it_correctly_concatenates_dataset_data(
 def test_it_correctly_loads_data_on_concatenated_datasets(
     sentences_dataset_with_translation: SentencesDataset,
     sentences_dataset_with_relative_audio: SentencesDataset,
+    sentences_with_only_original: SentencesDataset,
 ) -> None:
     merged_dataset = (
-        sentences_dataset_with_translation + sentences_dataset_with_relative_audio
+        sentences_with_only_original
+        + sentences_dataset_with_translation
+        + sentences_dataset_with_relative_audio
     )
 
-    merged_dataset.sentences_audio
+    assert len(merged_dataset) == (
+        len(sentences_with_only_original)
+        + len(sentences_dataset_with_translation)
+        + len(sentences_dataset_with_relative_audio)
+    )
+
+    assert (
+        merged_dataset.SENTENCES_AUDIO_COLUMN not in merged_dataset.sentences_df.columns
+    )
+    assert merged_dataset.sentences_audio is not None
+    assert (
+        merged_dataset.sentences_audio[13:].reset_index(drop=True)
+        == sentences_dataset_with_relative_audio.sentences_audio
+    ).all()
+    assert merged_dataset.sentences_audio.isna().sum() == len(
+        sentences_dataset_with_translation
+    ) + len(sentences_with_only_original)
+
+    assert (
+        merged_dataset.TRANSLATED_SENTENCES_COLUMN
+        not in merged_dataset.sentences_df.columns
+    )
+    assert merged_dataset.translated_sentences is not None
+    assert (
+        merged_dataset.translated_sentences[7:13].reset_index(drop=True)
+        == sentences_dataset_with_translation.translated_sentences
+    ).all()
+    assert merged_dataset.translated_sentences.isna().sum() == len(
+        sentences_dataset_with_relative_audio
+    ) + len(sentences_with_only_original)

@@ -111,6 +111,9 @@ class SentencesDataset:
         )
         return column_content
 
+    def __len__(self) -> int:
+        return len(self.sentences_df)
+
     def load_new_dataset_dataframe_columns(
         self, dataset_index: DatasetIndex, columns_to_load: list[Hashable]
     ) -> pandas.DataFrame:
