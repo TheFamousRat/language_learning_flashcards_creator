@@ -32,7 +32,7 @@ class SentenceFilterer:
         self.config = config
 
     @classmethod
-    def from_tatoeba_file(
+    def from_dataset(
         cls,
         sentences_dataset: SentencesDataset,
         word_frequency_file_path: Path,
@@ -134,21 +134,23 @@ class SentenceFilterer:
     ) -> pandas.DataFrame:
         _logger.info("Running sentence filtering.")
         _logger.info("   Removing duplicate entries...")
-        sentences_df = self.sentences_dataset.sentences_df.drop_duplicates(
+        self.sentences_dataset.sentences_df = self.sentences_dataset.sentences_df.drop_duplicates(
             subset=SentencesDataset.ORIGINAL_SENTENCES_COLUMN
         )
 
         if self.sentences_dataset.translated_sentences is not None:
-            sentences_df = sentences_df.drop_duplicates(
+            self.sentences_dataset.sentences_df = self.sentences_dataset.sentences_df.drop_duplicates(
                 subset=SentencesDataset.TRANSLATED_SENTENCES_COLUMN
             )
 
+        # TODO: Marche pas
+        sentences_df = self.sentences_dataset.sentences_df
         _logger.info("   Tokenizing entries...")
         tokenizer = ViterbiTokenizer.from_token_frequencies(
             token_frequencies=self.word_to_freq
         )
         sentences_df[SENTENCES_WORDS_COL_NAME] = sentences_df[
-            SentencesDataset.TRANSLATED_SENTENCES_COLUMN
+            SentencesDataset.ORIGINAL_SENTENCES_COLUMN
         ].apply(lambda sentence: tokenizer.tokenize_sentence(sentence))
 
         _logger.info("   Removing entries out of word count range...")

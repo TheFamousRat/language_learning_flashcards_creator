@@ -64,7 +64,7 @@ class AnkiDeckGenerator:
         self.target_language_code = target_language_code
 
     @classmethod
-    def from_tatoeba_file(
+    def from_dataset(
         cls,
         deck_name: str,
         deck_output_folder: Path,
@@ -75,7 +75,7 @@ class AnkiDeckGenerator:
         target_language_code: str,
     ) -> AnkiDeckGenerator:
         # TODO: Ajouter logique pour traduire les phrases automatiquement si elles n'en ont pas déjà
-        filterer = SentenceFilterer.from_tatoeba_file(
+        filterer = SentenceFilterer.from_dataset(
             sentences_dataset=sentences_dataset,
             word_frequency_file_path=word_frequency_file_path,
             config=config.sentence_filtering_config,
