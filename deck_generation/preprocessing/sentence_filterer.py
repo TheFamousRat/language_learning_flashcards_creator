@@ -157,10 +157,11 @@ class SentenceFilterer:
             SentencesDataset.ORIGINAL_SENTENCES_COLUMN
         ].duplicated()
         if self.sentences_dataset.translated_sentences is not None:
-            duplicates_rows_mask = (
-                duplicates_rows_mask
-                | self.sentences_dataset.translated_sentences.duplicated()
+            duplicate_translated_sentences = (
+                self.sentences_dataset.translated_sentences.duplicated()
+                & self.sentences_dataset.translated_sentences.notna()
             )
+            duplicates_rows_mask = duplicates_rows_mask | duplicate_translated_sentences
         sentences_df = sentences_df[~duplicates_rows_mask]
 
         _logger.info("   Tokenizing entries...")

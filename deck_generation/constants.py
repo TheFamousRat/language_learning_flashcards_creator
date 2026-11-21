@@ -14,3 +14,4 @@ RAREST_WORD_FREQ_COL_NAME = "rarest_word_freq"
 
 ROOT_DIR = Path(__file__).parent.parent
 GENERATED_DECK_DATA_DIR = ROOT_DIR / "generated_deck_data"
+SOURCE_DATA_DIR = ROOT_DIR / "data"

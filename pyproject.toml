@@ -37,3 +37,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["deck_generation"]
+
+[tool.coverage.run]
+omit = [
+    "deck_generation/run/*"
+]
