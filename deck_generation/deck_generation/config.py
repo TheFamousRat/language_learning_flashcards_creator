@@ -9,6 +9,7 @@ from deck_generation.deck_generation.note_models import (
 
 @dataclass(frozen=True)
 class SentenceFilteringConfig:
+    rarest_word_rank: int = 2
     min_word_count: int = 4
     max_word_count: int = 20
     max_sentences_count_per_new_word: int = 2

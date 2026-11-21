@@ -129,22 +129,40 @@ class SentenceFilterer:
 
         return filtered_sentences_indexes
 
+    def _get_rarest_word(self, sentences_words: pandas.Series) -> pandas.DataFrame:
+        def _get_nth_rarest_word(words_list: list[str]) -> tuple[str, int]:
+            word_to_freq = {word: self.word_to_freq[word] for word in words_list}
+            word_frequency_sorted = sorted(
+                word_to_freq.items(), key=lambda item: item[1]
+            )
+            return word_frequency_sorted[
+                min(self.config.rarest_word_rank - 1, len(word_frequency_sorted) - 1)
+            ]
+
+        rarest_word_and_frequency_tuples = sentences_words.apply(_get_nth_rarest_word)
+
+        return pandas.DataFrame(
+            rarest_word_and_frequency_tuples.to_list(),
+            index=rarest_word_and_frequency_tuples.index,
+        )
+
     def get_filtered_sentences_df(
         self,
     ) -> pandas.DataFrame:
         _logger.info("Running sentence filtering.")
         _logger.info("   Removing duplicate entries...")
-        self.sentences_dataset.sentences_df = self.sentences_dataset.sentences_df.drop_duplicates(
-            subset=SentencesDataset.ORIGINAL_SENTENCES_COLUMN
-        )
-
-        if self.sentences_dataset.translated_sentences is not None:
-            self.sentences_dataset.sentences_df = self.sentences_dataset.sentences_df.drop_duplicates(
-                subset=SentencesDataset.TRANSLATED_SENTENCES_COLUMN
-            )
-
-        # TODO: Marche pas
         sentences_df = self.sentences_dataset.sentences_df
+
+        duplicates_rows_mask = sentences_df[
+            SentencesDataset.ORIGINAL_SENTENCES_COLUMN
+        ].duplicated()
+        if self.sentences_dataset.translated_sentences is not None:
+            duplicates_rows_mask = (
+                duplicates_rows_mask
+                | self.sentences_dataset.translated_sentences.duplicated()
+            )
+        sentences_df = sentences_df[~duplicates_rows_mask]
+
         _logger.info("   Tokenizing entries...")
         tokenizer = ViterbiTokenizer.from_token_frequencies(
             token_frequencies=self.word_to_freq
@@ -160,19 +178,14 @@ class SentenceFilterer:
         )
         sentences_df = sentences_df[sentences_length_mask]
 
-        _logger.info("   Ranking sentences by similarity...")
-        rarest_word_and_frequency = sentences_df[SENTENCES_WORDS_COL_NAME].apply(
-            lambda words_list: sorted(
-                {word: self.word_to_freq[word] for word in words_list}.items(),
-                key=lambda x: x[1],
-            )[:2][
-                -1
-            ]  # TODO: Make 2 (meaning the 2nd rarest word) configurable
-        )
+        _logger.info("   Ranking sentences by difficulty...")
         sentences_df[[RAREST_WORD_COL_NAME, RAREST_WORD_FREQ_COL_NAME]] = (
-            pandas.DataFrame(rarest_word_and_frequency.to_list())
+            self._get_rarest_word(
+                sentences_words=sentences_df[SENTENCES_WORDS_COL_NAME]
+            )
         )
 
+        _logger.info("   Removing similar sentences...")
         filtered_sentences_indexes = self._get_filtered_group_sentences_indices(
             sentences_df=sentences_df
         )

@@ -40,8 +40,9 @@ def main() -> None:
             translated_sentences_column=3,
         )
     )
+    # TODO: Add Mozilla dataset too
 
-    deck_generator = AnkiDeckGenerator.from_tatoeba_file(
+    deck_generator = AnkiDeckGenerator.from_dataset(
         deck_name="Deck français-italien",
         deck_output_folder=GENERATED_DECK_DATA_DIR,
         sentences_dataset=tatoeba_dataset,

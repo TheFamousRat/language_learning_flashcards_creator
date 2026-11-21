@@ -42,6 +42,7 @@ class AnkiDeckGenerator:
         deck_name: str,
         deck_output_folder: Path,
         sentences_filterer: SentenceFilterer,
+        sentences_dataset: SentencesDataset,
         config: DeckGeneratorConfig,
         translated_language_code: str,
         target_language_code: str,
@@ -53,6 +54,7 @@ class AnkiDeckGenerator:
         self.config_file = self.deck_output_folder / "used_config.json"
 
         self.sentences_filterer = sentences_filterer
+        self.sentences_dataset = sentences_dataset
 
         self.config = config
 
@@ -85,6 +87,7 @@ class AnkiDeckGenerator:
             deck_name=deck_name,
             deck_output_folder=deck_output_folder,
             sentences_filterer=filterer,
+            sentences_dataset=sentences_dataset,
             config=config,
             translated_language_code=translated_language_code,
             target_language_code=target_language_code,
@@ -128,12 +131,12 @@ class AnkiDeckGenerator:
 
         # TODO: Add condition to check whether the data needs to be regenerated or not
         sentences_df = self.sentences_filterer.get_filtered_sentences_df()
-        sentences_df = sentences_df.reset_index(drop=True)
 
         self._generate_audio_files(
             sentences_df=sentences_df, previous_config=previous_config
         )
 
+        # TODO: Make method for that in SentencesDataset
         sentences_df[
             [
                 TARGET_ID_COL_NAME,
